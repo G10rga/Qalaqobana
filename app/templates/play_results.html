@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% set page = "results" %}
+{% block title %}შედეგები{% endblock %}
+{% block content %}
+<div class="flex flex-col gap-6">
+  <div class="text-center space-y-1">
+    <p class="text-secondary text-xs uppercase tracking-widest font-bold">ასო {{ room.letter }} · რაუნდი {{ room.round_number }}</p>
+    <h1 class="text-3xl font-extrabold">
+      {% if pending %}შედეგები მზადდება…{% else %}რაუნდი {{ room.round_number }}-ის შედეგები{% endif %}
+    </h1>
+  </div>
+
+  {% if pending %}
+  <div class="bg-surface-container-low rounded-xl p-12 flex flex-col items-center gap-4 text-center min-h-[280px] justify-center">
+    <div class="w-14 h-14 border-4 border-secondary/30 border-t-secondary rounded-full animate-spin"></div>
+    <p class="text-xl font-bold">შედეგები მზადდება…</p>
+    <p class="text-on-surface-variant">Results are pending</p>
+  </div>
+  {% else %}
+  <div class="overflow-x-auto bg-surface-container-low rounded-xl shadow-xl">
+    <table class="w-full text-left text-sm min-w-[640px]">
+      <thead>
+        <tr class="bg-surface-container-lowest text-on-surface-variant">
+          <th class="p-3">კატეგორია</th>
+          {% for p in room.players %}
+          <th class="p-3 {% if p.id == room.you %}text-secondary{% endif %}">
+            {% if p.id == room.you %}შენ{% else %}{{ p.name }}{% endif %}
+          </th>
+          {% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for cat in room.categories %}
+        <tr class="border-t border-surface-variant/30">
+          <td class="p-3 font-bold">{{ labels[cat].ka }}</td>
+          {% for p in room.players %}
+          {% set v = (room.verdicts.get(p.id) or {}).get(cat) or {} %}
+          {% set pts = (room.round_points.get(p.id) or {}).get(cat, 0) %}
+          {% set ans = v.get('answer') or (room.answers.get(p.id) or {}).get(cat) or '—' %}
+          <td class="p-3">
+            <div class="{% if v.get('valid') == false %}line-through text-error{% endif %}">{{ ans }}</div>
+            <div class="text-xs font-bold {% if pts == 15 %}text-primary{% elif pts == 10 %}text-secondary{% elif pts == 5 %}text-primary/80{% else %}text-error{% endif %}">
+              {% if pts %} +{{ pts }}{% else %}0{% endif %}
+            </div>
+          </td>
+          {% endfor %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="bg-surface-container-low rounded-xl p-5 space-y-2">
+    <h2 class="font-bold">რაუნდის ქულები</h2>
+    {% for p in room.players|sort(attribute='total_score', reverse=True) %}
+    <div class="flex justify-between text-sm">
+      <span>{% if p.id == room.you %}შენ ({{ p.name }}){% else %}{{ p.name }}{% endif %}</span>
+      <span class="font-mono">+{{ room.round_totals.get(p.id, 0) }} · ჯამი {{ p.total_score }}</span>
+    </div>
+    {% endfor %}
+  </div>
+
+  {% if is_host %}
+  <form method="post" action="{{ url_for('main.results_next') }}">
+    {% if room.match_over %}
+    <button type="submit" class="w-full py-4 rounded-xl bg-primary-container text-on-primary-container font-bold">ფინალური პოდიუმი</button>
+    {% else %}
+    <button type="submit" class="w-full py-4 rounded-xl bg-primary-container text-on-primary-container font-bold">შემდეგი რაუნდი</button>
+    {% endif %}
+  </form>
+  {% else %}
+  <p class="text-center text-on-surface-variant text-sm">მასპინძელი გაგრძელებს…</p>
+  {% endif %}
+  {% endif %}
+</div>
+{% endblock %}

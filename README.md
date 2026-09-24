@@ -1,92 +1,197 @@
 # Qalaqobana
 
-Online multiplayer **Qalaqobana** (ქართული ასოებით კატეგორიების თამაში) — fill categories for a random Georgian letter, race to STOP, then score.
+Online multiplayer **Qalaqobana** — random Georgian letter, fill categories, call **STOP**, verify answers, score.
 
-## Game rules
+Backend is implemented. Frontend is a placeholder shell until custom HTML/CSS/JS is dropped in.
 
-1. A room is created; players join.
-2. Each round rolls a random letter from the Georgian (Mkhedruli) alphabet.
-3. Players fill answers for categories as fast as they can.
-4. Anyone may call **STOP**. Everyone else is locked immediately, even with empty categories.
-5. Answers are verified in the background (web / knowledge checks — planned).
-6. Points are awarded per category:
-   - **5** — same valid word as at least one other player
-   - **10** — valid word that differs from every other player’s word
-   - **15** — only you have a valid word in that category
+## Rules
 
-### Categories
+1. Host creates a room; others join with a code.
+2. Each round rolls a Mkhedruli letter.
+3. Players fill categories as fast as possible.
+4. Anyone calls **STOP** → all inputs lock.
+5. Server verifies answers in the background (Wikipedia + heuristics).
+6. Scoring per category (valid answers only):
+   - **15** — only you have a valid word
+   - **10** — your word is different from everyone else’s
+   - **5** — at least one other player has the same word
 
-**Default:** Country, City, Animal, Plant, Name  
-
-**Optional (host can enable):** River, Film, Food, and similar
+**Required categories:** country, city, animal, plant, name, river  
+**Optional (host can add):** film, food
 
 ## Stack
 
-| Layer | Choice |
-| --- | --- |
-| Backend | **Flask** + **Flask-SocketIO** (live rooms, STOP, round sync) |
-| Frontend | **HTML / CSS / JS** (custom UI/UX and animations — placeholder shell for now) |
-| Verify (planned) | Background jobs + web/Wikipedia-style checks after STOP |
-| Deploy (later) | TBD |
+- **Flask** + **Flask-SocketIO** (realtime rooms)
+- **HTML / CSS / JS** placeholder + `QalaqobanaClient` helper
+- **Verification:** Georgian letter check + Wikipedia (ka/en) search; soft categories (`name`, `food`) accept letter-correct answers when wiki is thin
+- **State:** in-memory rooms (fine for LAN / small deploy; restart clears rooms)
 
-## Project layout
+## Frontend
 
-```
-Qalaqobana/
-├── app/
-│   ├── __init__.py          # Flask app factory + SocketIO
-│   ├── events.py            # Socket.IO handlers
-│   ├── routes/              # HTTP routes
-│   ├── game/                # Constants + upcoming room/round/score logic
-│   ├── static/              # css/, js/
-│   └── templates/           # HTML templates
-├── run.py                   # Dev entry point
-├── requirements.txt
-├── .env.example
-└── README.md
-```
+Pages are **server-rendered Jinja templates** (Flask forms).  
+`app/static/js/live.js` is a thin Socket.IO helper (~100 lines) only for:
+- syncing the socket session
+- redirecting when round state changes
+- arena answer autosave + countdown
 
-## Status
-
-**Scaffold only.** Working pieces today:
-
-- Flask app boots and serves a placeholder page
-- Socket.IO connects from the browser
-
-**Not built yet** (in roughly this order):
-
-- [ ] Create / join rooms
-- [ ] Lobby, player list, host controls
-- [ ] Round start + Georgian letter roll
-- [ ] Category answer forms + live STOP lock
-- [ ] Answer verification pipeline
-- [ ] Scoring (5 / 10 / 15) and round results
-- [ ] Custom animated UI (replacing the placeholder)
-- [ ] Persistence, auth polish, production deploy
+All game logic (rooms, STOP, verification, scoring) stays in Python.
 
 ## Setup
 
-Requires **Python 3.10+**.
+Python 3.10+
 
 ```bash
 cd Qalaqobana
 python -m venv .venv
-
-# Windows
-.venv\Scripts\activate
-
-# macOS / Linux
-# source .venv/bin/activate
-
+.venv\Scripts\activate          # Windows
 pip install -r requirements.txt
-copy .env.example .env   # or: cp .env.example .env
+copy .env.example .env
 python run.py
 ```
 
-Open [http://127.0.0.1:5000](http://127.0.0.1:5000). The status line should move to **Ready** when Socket.IO connects.
+Open http://127.0.0.1:5000  
+Health: `GET /api/health`
 
-## Contributing / roadmap notes
+```bash
+python -m unittest discover -s tests -v
+```
 
-UI/UX will be custom HTML/CSS/JS with its own animations — keep game protocol (Socket.IO events and payloads) stable so the frontend can evolve independently of scoring and verification.
+## Project layout
 
-This README will be updated as rooms, STOP, verification, and scoring land.
+```
+app/
+  __init__.py          # app factory + SocketIO
+  events.py            # Socket.IO protocol
+  routes/api.py        # REST mirror of game actions
+  routes/main.py       # serves index.html
+  game/
+    constants.py
+    models.py
+    store.py
+    rooms.py           # create/join/start/stop/verify
+    scoring.py
+    verification.py
+    normalize.py
+  static/js/client.js  # browser protocol helper
+  templates/index.html # placeholder UI
+```
+
+---
+
+## Socket.IO protocol (primary)
+
+Connect to the same origin. Persist `player_id` + room `code` in the browser after create/join.
+
+### Client → server
+
+| Event | Payload | Notes |
+| --- | --- | --- |
+| `meta` | `{}` | Categories, letters, score table |
+| `create_room` | `{ player_name, categories? }` | Host; optional category list |
+| `join_room` | `{ code, player_name }` | Lobby only |
+| `leave_room` | `{ code, player_id }` | |
+| `set_categories` | `{ code, player_id, categories }` | Host, lobby only |
+| `start_round` | `{ code, player_id }` | Host; from lobby or results |
+| `update_answers` | `{ code, player_id, answers }` | `answers`: `{ city: "თბილისი", ... }` while `playing` |
+| `stop_round` | `{ code, player_id }` | Locks everyone → verifying |
+| `next_round` | `{ code, player_id }` | Host alias of start_round |
+| `return_lobby` | `{ code, player_id }` | Host, from results |
+| `sync` | `{ code, player_id }` | Re-bind socket after refresh |
+
+### Server → client
+
+| Event | Payload |
+| --- | --- |
+| `connected` | `{ ok: true }` |
+| `meta` | category lists, labels, scores, letters |
+| `room_created` / `room_joined` | `{ player_id, room }` |
+| `room_state` | personalized room snapshot (see below) |
+| `answers_saved` | `{ ok, answers }` |
+| `round_started` | `{ letter, categories, round_number }` |
+| `round_stopped` | `{ stopped_by, room? }` |
+| `verification_complete` | `{ room? }` |
+| `left_room` | `{ ok: true }` |
+| `error` | `{ message, code }` |
+
+### Room state shape
+
+```json
+{
+  "code": "AB12C",
+  "host_id": "...",
+  "state": "lobby | playing | verifying | results",
+  "categories": ["country", "city", "..."],
+  "letter": "თ",
+  "round_number": 1,
+  "players": [{ "id", "name", "connected", "total_score" }],
+  "answers": { "<player_id>": { "city": "..." } },
+  "verdicts": {
+    "<player_id>": {
+      "city": {
+        "answer": "...",
+        "normalized": "...",
+        "letter_ok": true,
+        "valid": true,
+        "status": "valid | invalid | uncertain | empty",
+        "reason": "...",
+        "source": "..."
+      }
+    }
+  },
+  "round_points": { "<player_id>": { "city": 10 } },
+  "round_totals": { "<player_id>": 25 },
+  "stopped_by": "<player_id>",
+  "verification_done": true,
+  "you": "<player_id>"
+}
+```
+
+While `playing`, each client only receives **their own** answers in `room_state`. After STOP (`verifying` / `results`), everyone’s answers and verdicts are visible. `round_points` / `round_totals` appear in `results`.
+
+### Browser helper
+
+```js
+const client = QalaqobanaClient.create();
+client.createRoom("Nino", ["country", "city", "animal", "plant", "name"]);
+client.on("room_state", (room) => { /* render */ });
+client.updateAnswers({ city: "თბილისი" });
+client.stopRound();
+```
+
+---
+
+## REST API (same operations)
+
+| Method | Path | Body |
+| --- | --- | --- |
+| GET | `/api/health` | |
+| GET | `/api/meta` | |
+| POST | `/api/verify` | `{ answer, category, letter }` — single-answer check |
+| POST | `/api/rooms` | `{ player_name, categories? }` |
+| POST | `/api/rooms/<code>/join` | `{ player_name }` |
+| GET | `/api/rooms/<code>?player_id=` | |
+| POST | `/api/rooms/<code>/categories` | `{ player_id, categories }` |
+| POST | `/api/rooms/<code>/start` | `{ player_id }` |
+| POST | `/api/rooms/<code>/answers` | `{ player_id, answers }` |
+| POST | `/api/rooms/<code>/stop` | `{ player_id }` |
+| POST | `/api/rooms/<code>/lobby` | `{ player_id }` |
+
+REST stop also kicks off background verification and emits Socket.IO updates to anyone connected in the room.
+
+---
+
+## Verification notes
+
+1. Empty / junk → invalid (0 points).
+2. Must start with the round letter.
+3. Wikipedia search (ka, then en) + category keyword hints.
+4. `name` and `food` are **soft**: letter-correct answers can count as valid even if wiki is weak (`status: uncertain`).
+5. Hard categories without support → invalid / uncertain (not scored).
+
+Verification needs outbound HTTPS. Offline, letter checks still run; wiki lookups fail closed (except soft categories).
+
+---
+
+## Frontend handoff
+
+Replace `app/templates/index.html` and `app/static/css|js` with your design. Keep `client.js` (or reimplement the same events). Recommended screens: home (create/join) → lobby → playing (letter + inputs + STOP) → verifying spinner → results → next round / lobby.

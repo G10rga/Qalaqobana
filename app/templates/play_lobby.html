@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% set page = "lobby" %}
+{% block title %}ლობი — {{ room.code }}{% endblock %}
+{% block content %}
+<div class="flex flex-col gap-6">
+  <section class="bg-surface-container rounded-xl p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div>
+      <p class="text-secondary text-xs uppercase tracking-widest font-bold">ოთახის კოდი</p>
+      <p class="text-4xl font-extrabold text-primary font-mono tracking-wider" id="room-code">{{ room.code }}</p>
+    </div>
+    <button type="button" data-copy="#room-code" class="px-4 py-2 rounded-lg bg-surface-container-high text-secondary text-sm font-bold">კოპირება</button>
+  </section>
+
+  <div class="grid lg:grid-cols-5 gap-6">
+    <section class="lg:col-span-3 bg-surface-container-low rounded-xl p-5 space-y-3">
+      <h2 class="font-bold text-lg">მოთამაშეები ({{ room.players|selectattr('connected')|list|length }}/8)</h2>
+      {% for p in room.players %}
+        {% if p.connected %}
+        <div class="flex items-center justify-between p-3 rounded-lg bg-surface-container">
+          <div class="flex items-center gap-2">
+            <span class="font-bold">{{ p.name }}</span>
+            {% if p.id == room.host_id %}<span class="text-xs px-2 py-0.5 rounded bg-primary/20 text-primary">მასპინძელი</span>{% endif %}
+            {% if p.id == room.you %}<span class="text-xs px-2 py-0.5 rounded bg-secondary/20 text-secondary">შენ</span>{% endif %}
+          </div>
+          <span class="text-sm text-on-surface-variant">{{ p.total_score }} ქ</span>
+        </div>
+        {% endif %}
+      {% endfor %}
+
+      {% if is_host %}
+      <form method="post" action="{{ url_for('main.lobby_start') }}" class="pt-2">
+        <button type="submit" class="w-full py-4 rounded-xl bg-primary-container text-on-primary-container font-extrabold text-lg">თამაშის დაწყება</button>
+      </form>
+      {% else %}
+      <p class="text-on-surface-variant text-sm pt-2">მასპინძელი იწყებს თამაშს…</p>
+      {% endif %}
+    </section>
+
+    <section class="lg:col-span-2 bg-surface-container-low rounded-xl p-5 space-y-3">
+      <h2 class="font-bold text-lg">კატეგორიები</h2>
+      <ul class="text-sm space-y-1 text-on-surface-variant">
+        {% for key in required_categories %}
+        <li>✓ {{ labels[key].ka }} <span class="text-xs">(სავალდებულო)</span></li>
+        {% endfor %}
+      </ul>
+      {% if is_host %}
+      <form method="post" action="{{ url_for('main.lobby_categories') }}" class="space-y-2 pt-2 border-t border-surface-variant/40">
+        <p class="text-sm font-semibold">დამატებითი</p>
+        {% for key in optional_categories %}
+        <label class="flex items-center gap-2 text-sm">
+          <input type="checkbox" name="extra" value="{{ key }}" class="accent-secondary"
+            {% if key in room.categories %}checked{% endif %}/>
+          {{ labels[key].ka }}
+        </label>
+        {% endfor %}
+        <button type="submit" class="w-full py-2 rounded-lg bg-surface-container-high text-secondary text-sm font-bold">შენახვა</button>
+      </form>
+      {% else %}
+      <ul class="text-sm space-y-1">
+        {% for key in optional_categories %}
+          {% if key in room.categories %}
+          <li class="text-secondary">+ {{ labels[key].ka }}</li>
+          {% endif %}
+        {% endfor %}
+      </ul>
+      {% endif %}
+    </section>
+  </div>
+</div>
+{% endblock %}

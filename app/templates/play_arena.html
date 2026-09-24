@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% set page = "arena" %}
+{% block title %}არენა — {{ room.letter }}{% endblock %}
+{% block content %}
+<div class="flex flex-col gap-6" id="arena-root">
+  <section class="bg-surface-container-low rounded-xl p-6 text-center relative overflow-hidden">
+    <p class="text-secondary text-xs uppercase tracking-widest font-bold mb-2">რაუნდი {{ room.round_number }} / {{ room.max_rounds }}</p>
+    <div class="inline-flex flex-col items-center justify-center w-28 h-28 rounded-full bg-surface-container-highest shadow-xl">
+      <span class="text-xs text-primary uppercase">ასო</span>
+      <span class="text-5xl font-extrabold text-primary">{{ letter }}</span>
+    </div>
+    <p class="mt-3 text-on-surface-variant text-sm">ყველა სიტყვა იწყება «{{ letter }}» ასოთი</p>
+    <p class="mt-2 font-mono text-tertiary text-2xl" id="timer" data-seconds="{{ room.round_seconds }}">—</p>
+  </section>
+
+  <form method="post" action="{{ url_for('main.arena_stop') }}" id="answer-form" class="grid lg:grid-cols-3 gap-6">
+    <div class="lg:col-span-2 space-y-3">
+      {% for cat in room.categories %}
+      {% set raw = answers.get(cat, '') %}
+      {% set rest = raw[1:] if raw and letter and raw.startswith(letter) else raw %}
+      <label class="block bg-surface-container rounded-xl p-4">
+        <span class="text-sm font-bold flex items-center gap-2 mb-2">{{ labels[cat].ka }}</span>
+        <div class="flex items-center bg-surface-container-lowest rounded-lg px-3">
+          <span class="text-primary font-extrabold text-xl pr-2">{{ letter }}</span>
+          <input name="{{ cat }}" data-cat="{{ cat }}" value="{{ rest }}"
+            class="answer-input w-full bg-transparent py-3 outline-none font-semibold"
+            autocomplete="off"/>
+        </div>
+      </label>
+      {% endfor %}
+    </div>
+    <div class="space-y-4">
+      <button type="submit" class="w-full py-6 rounded-2xl bg-gradient-to-b from-[#e63946] to-[#a81423] text-white font-extrabold text-2xl shadow-lg">
+        სტოპ!
+      </button>
+      <p class="text-on-surface-variant text-sm text-center">შეავსე ველები და დააჭირე STOP-ს</p>
+      <div class="bg-surface-container-low rounded-xl p-4 space-y-2">
+        <p class="text-xs uppercase tracking-wider text-on-surface-variant font-bold">ქულები</p>
+        {% for p in room.players|sort(attribute='total_score', reverse=True) %}
+          {% if p.connected %}
+          <div class="flex justify-between text-sm">
+            <span>{% if p.id == room.you %}შენ{% else %}{{ p.name }}{% endif %}</span>
+            <span class="font-mono font-bold">{{ p.total_score }}</span>
+          </div>
+          {% endif %}
+        {% endfor %}
+      </div>
+    </div>
+  </form>
+</div>
+{% endblock %}

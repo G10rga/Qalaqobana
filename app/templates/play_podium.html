@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% set page = "podium" %}
+{% block title %}ფინალი{% endblock %}
+{% block content %}
+<div class="flex flex-col gap-8 items-center text-center">
+  <div>
+    <p class="text-primary text-xs uppercase tracking-widest font-bold">მატჩი დასრულდა</p>
+    <h1 class="text-4xl font-extrabold mt-2">თამაში დასრულდა!</h1>
+  </div>
+
+  <div class="w-full max-w-lg space-y-3">
+    {% for p in ranked %}
+    <div class="flex items-center justify-between p-4 rounded-xl {% if loop.index0 == 0 %}bg-primary/15 border border-primary/40{% else %}bg-surface-container-low{% endif %}">
+      <div class="flex items-center gap-3">
+        <span class="font-mono font-bold text-primary w-6">{{ loop.index }}</span>
+        <span class="font-bold">{% if p.id == room.you %}შენ ({{ p.name }}){% else %}{{ p.name }}{% endif %}</span>
+      </div>
+      <span class="font-mono font-extrabold text-xl">{{ p.total_score }}</span>
+    </div>
+    {% endfor %}
+  </div>
+
+  <div class="flex flex-wrap gap-3 justify-center">
+    {% if is_host %}
+    <form method="post" action="{{ url_for('main.podium_lobby') }}">
+      <button type="submit" class="px-6 py-3 rounded-xl bg-primary-container text-on-primary-container font-bold">ხელახლა ლობიში</button>
+    </form>
+    {% endif %}
+    <form method="post" action="{{ url_for('main.leave') }}">
+      <button type="submit" class="px-6 py-3 rounded-xl bg-surface-container-high font-bold">ოთახის დატოვება</button>
+    </form>
+  </div>
+</div>
+{% endblock %}
