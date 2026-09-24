@@ -11,7 +11,6 @@ DEFAULT_CATEGORIES = [
     "animal",
     "plant",
     "name",
-    "river",
 ]
 
 # Always included in every room — cannot be turned off.
@@ -19,6 +18,7 @@ REQUIRED_CATEGORIES = list(DEFAULT_CATEGORIES)
 
 # Host can add these when creating / in lobby.
 OPTIONAL_CATEGORIES = [
+    "river",
     "film",
     "food",
 ]

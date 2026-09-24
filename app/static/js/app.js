@@ -12,7 +12,8 @@
     film: { ka: "ფილმი", emoji: "🎬" },
     food: { ka: "საჭმელი", emoji: "🍽️" },
   };
-  const REQUIRED_CATS = ["country", "city", "animal", "plant", "name", "river"];
+  const REQUIRED_CATS = ["country", "city", "animal", "plant", "name"];
+  
   const PATHS = { home: "/", lobby: "/lobby", arena: "/arena", results: "/results", podium: "/podium" };
 
   const page = detectPage();
