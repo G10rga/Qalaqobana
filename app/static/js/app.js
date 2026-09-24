@@ -1,5 +1,5 @@
 /**
- * Qalaqobana UI wiring - connects designed screens to the Flask Socket.IO backend.
+ * Qalaqobana — Socket.IO UI for clean deploy templates.
  */
 (function () {
   const CAT = {
@@ -12,14 +12,8 @@
     film: { ka: "ფილმი", emoji: "🎬" },
     food: { ka: "საჭმელი", emoji: "🍽️" },
   };
-
-  const PATHS = {
-    home: "/",
-    lobby: "/lobby",
-    arena: "/arena",
-    results: "/results",
-    podium: "/podium",
-  };
+  const REQUIRED_CATS = ["country", "city", "animal", "plant", "name", "river"];
+  const PATHS = { home: "/", lobby: "/lobby", arena: "/arena", results: "/results", podium: "/podium" };
 
   const page = detectPage();
   const client = window.QalaqobanaClient.create();
@@ -59,19 +53,10 @@
   }
 
   function ensureOnCorrectPage(room) {
-    if (!room || page === "home") return;
-    const target = routeForState(room);
-    const here =
-      page === "home"
-        ? PATHS.home
-        : page === "lobby"
-          ? PATHS.lobby
-          : page === "arena"
-            ? PATHS.arena
-            : page === "results"
-              ? PATHS.results
-              : PATHS.podium;
-    if (target !== here) go(target);
+    const want = routeForState(room);
+    if (want !== location.pathname && want !== location.pathname.replace(/\/$/, "")) {
+      go(want);
+    }
   }
 
   function toast(msg) {
@@ -80,7 +65,9 @@
       el = document.createElement("div");
       el.id = "q-toast";
       el.style.cssText =
-        "position:fixed;bottom:24px;left:50%;transform:translateX(-50%);z-index:9999;background:#1e2b3b;color:#d6e4f9;padding:12px 18px;border-radius:12px;font:600 14px Plus Jakarta Sans,sans-serif;box-shadow:0 8px 24px rgba(0,0,0,.45);max-width:90vw;";
+        "position:fixed;bottom:24px;left:50%;transform:translateX(-50%);z-index:9999;" +
+        "background:#1e2b3b;color:#d6e4f9;padding:10px 18px;border-radius:10px;font:600 14px Plus Jakarta Sans,sans-serif;" +
+        "box-shadow:0 8px 24px rgba(0,0,0,.45);max-width:90vw;text-align:center";
       document.body.appendChild(el);
     }
     el.textContent = msg;
@@ -88,48 +75,49 @@
     clearTimeout(el._t);
     el._t = setTimeout(() => {
       el.style.opacity = "0";
-    }, 3200);
+    }, 2800);
   }
 
+  function escapeHtml(s) {
+    return String(s || "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
+  function escapeAttr(s) {
+    return escapeHtml(s).replace(/'/g, "&#39;");
+  }
   function initial(name) {
-    return (name || "?").trim().charAt(0).toUpperCase();
+    return String(name || "?").trim().charAt(0).toUpperCase() || "?";
   }
-
-  function pointsBadge(pts) {
-    if (pts === 15)
-      return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary-container text-on-primary-container text-xs font-bold w-fit">⭐ +15</span>`;
-    if (pts === 10)
-      return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#2ECC71]/20 text-[#2ECC71] text-xs font-bold w-fit">+10</span>`;
-    if (pts === 5)
-      return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary-container/20 text-primary text-xs font-bold w-fit">+5</span>`;
-    return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-error-container/30 text-error text-xs font-bold w-fit">0</span>`;
+  function isHostOf(room) {
+    return !!(room && room.you && String(room.host_id) === String(room.you));
   }
 
   function updateChrome(room) {
     if (!room) return;
-    document.querySelectorAll("header .font-mono.tracking-widest").forEach((el) => {
-      if (el.closest("header")) el.textContent = "#" + room.code;
-    });
-    document.querySelectorAll("[data-live-room-code]").forEach((el) => {
-      el.textContent = room.code;
-    });
-    const players = (room.players || []).filter((p) => p.connected);
-    document.querySelectorAll("header").forEach(() => {});
-    // session score for you
+    const codeEl = document.getElementById("header-room-code");
+    const scoreEl = document.getElementById("header-score");
+    const leaveBtn = document.getElementById("leave-btn");
+    if (codeEl) {
+      codeEl.textContent = "#" + room.code;
+      codeEl.classList.remove("hidden");
+    }
     const me = (room.players || []).find((p) => p.id === room.you);
-    const scoreEls = Array.from(document.querySelectorAll("header span")).filter((s) =>
-      s.textContent.includes("სესიის ქულა")
-    );
-    scoreEls.forEach((span) => {
-      const val = span.querySelector("span");
-      if (val) val.textContent = String((me && me.total_score) || 0);
-    });
-    const countEls = Array.from(document.querySelectorAll("header span")).filter((s) =>
-      s.textContent.includes("მოთამაშეები")
-    );
-    countEls.forEach((span) => {
-      const val = span.querySelector("span");
-      if (val) val.textContent = players.length + "/8";
+    if (scoreEl) {
+      scoreEl.textContent = (me ? me.total_score : 0) + " ქ";
+      scoreEl.classList.remove("hidden");
+    }
+    if (leaveBtn) leaveBtn.classList.remove("hidden");
+  }
+
+  const leaveBtn = document.getElementById("leave-btn");
+  if (leaveBtn) {
+    leaveBtn.addEventListener("click", () => {
+      client.leaveRoom();
+      client.clearSession();
+      go(PATHS.home);
     });
   }
 
@@ -141,16 +129,50 @@
     const codeInput = document.getElementById("room-code-input");
     const pasteBtn = document.getElementById("paste-btn");
     const randomBtn = document.getElementById("random-nick-btn");
+    const soloBtn = document.getElementById("solo-start-btn");
 
     const nicks = [
       "ქართველი_არწივი",
       "მთის_შევარდენი",
       "სიტყვების_ოსტატი",
-      "ლეგენდარი_99",
       "მტკვრის_ტალღა",
       "თბილისელი_გურუ",
       "სხარტი_გონება",
     ];
+
+    let maxRounds = 5;
+    let roundSeconds = 60;
+    let soloPending = false;
+
+    const IDLE = "px-2.5 py-1 rounded text-xs font-bold text-on-surface-variant";
+    const ACTIVE_S = "px-2.5 py-1 rounded text-xs font-bold bg-primary text-on-primary";
+    const ACTIVE_R = "px-2.5 py-1 rounded text-xs font-bold bg-secondary text-on-secondary";
+
+    function paint(root, attr, value, active) {
+      if (!root) return;
+      root.querySelectorAll("button[" + attr + "]").forEach((btn) => {
+        btn.className = String(btn.getAttribute(attr)) === String(value) ? active : IDLE;
+      });
+    }
+
+    const secondsPicker = document.getElementById("home-seconds-picker");
+    const roundsPicker = document.getElementById("home-rounds-picker");
+    if (secondsPicker) {
+      secondsPicker.addEventListener("click", (e) => {
+        const btn = e.target.closest("button[data-seconds]");
+        if (!btn) return;
+        roundSeconds = parseInt(btn.getAttribute("data-seconds"), 10);
+        paint(secondsPicker, "data-seconds", roundSeconds, ACTIVE_S);
+      });
+    }
+    if (roundsPicker) {
+      roundsPicker.addEventListener("click", (e) => {
+        const btn = e.target.closest("button[data-rounds]");
+        if (!btn) return;
+        maxRounds = parseInt(btn.getAttribute("data-rounds"), 10);
+        paint(roundsPicker, "data-rounds", maxRounds, ACTIVE_R);
+      });
+    }
 
     if (randomBtn && nick) {
       randomBtn.onclick = () => {
@@ -162,90 +184,98 @@
         try {
           codeInput.value = (await navigator.clipboard.readText()).trim().toUpperCase();
         } catch (e) {
-          toast("Clipboard unavailable");
+          toast("კოპირება ვერ მოხერხდა");
         }
       };
     }
     if (codeInput) {
       codeInput.addEventListener("input", () => {
-        codeInput.value = codeInput.value.toUpperCase();
+        codeInput.value = codeInput.value.toUpperCase().replace(/[^A-Z0-9]/g, "");
       });
     }
 
-    // duration / rounds pickers on home create card
-    let maxRounds = 5;
-    let roundSeconds = 60;
-    document.querySelectorAll("#create-room-btn")[0];
-    const createCard = createBtn && createBtn.closest(".lg\\:col-span-6");
-    if (createCard) {
-      createCard.querySelectorAll("button").forEach((btn) => {
-        const t = (btn.textContent || "").trim();
-        if (t === "60წმ" || t === "90წმ" || t === "120წმ") {
-          btn.addEventListener("click", () => {
-            roundSeconds = parseInt(t, 10);
-            createCard.querySelectorAll("button").forEach((b) => {
-              const x = (b.textContent || "").trim();
-              if (x.endsWith("წმ")) {
-                b.className = b.className.replace(/bg-primary[^ ]*|text-on-primary/g, "");
-                if (x === t) b.classList.add("bg-primary", "text-on-primary");
-              }
-            });
-          });
-        }
-        if (t === "3" || t === "5 რაუნდი" || t === "7") {
-          btn.addEventListener("click", () => {
-            maxRounds = t.startsWith("5") ? 5 : parseInt(t, 10);
-          });
-        }
+    // Prefill join code from ?join=
+    const joinParam = new URLSearchParams(location.search).get("join");
+    if (joinParam && codeInput) codeInput.value = joinParam.toUpperCase();
+
+    function requireName() {
+      const name = (nick && nick.value.trim()) || "";
+      if (!name) {
+        toast("შეიყვანე მეტსახელი");
+        if (nick) nick.focus();
+        return null;
+      }
+      return name;
+    }
+
+    function createWithSettings(name) {
+      client.createRoom(name, {
+        categories: REQUIRED_CATS.slice(),
+        maxRounds: maxRounds,
+        roundSeconds: roundSeconds,
       });
     }
 
     if (createBtn) {
-      const createClone = createBtn.cloneNode(true);
-      createBtn.parentNode.replaceChild(createClone, createBtn);
-      createClone.addEventListener("click", () => {
-        const name = (nick && nick.value.trim()) || "";
-        if (!name) {
-          toast("შეიყვანე მეტსახელი");
-          return;
-        }
-        createClone.disabled = true;
-        client.createRoom(name, {
-          categories: ["country", "city", "animal", "plant", "name", "river"],
-          maxRounds: maxRounds,
-          roundSeconds: roundSeconds,
-        });
+      createBtn.addEventListener("click", () => {
+        const name = requireName();
+        if (!name) return;
+        soloPending = false;
+        createBtn.disabled = true;
+        createWithSettings(name);
       });
     }
-
     if (joinBtn) {
-      const joinClone = joinBtn.cloneNode(true);
-      joinBtn.parentNode.replaceChild(joinClone, joinBtn);
-      joinClone.addEventListener("click", () => {
-        const name = (nick && nick.value.trim()) || "";
+      joinBtn.addEventListener("click", () => {
+        const name = requireName();
+        if (!name) return;
         const code = (codeInput && codeInput.value.trim()) || "";
-        if (!name) {
-          toast("შეიყვანე მეტსახელი");
-          return;
-        }
         if (!code) {
           toast("შეიყვანე ოთახის კოდი");
           return;
         }
-        joinClone.disabled = true;
+        soloPending = false;
+        joinBtn.disabled = true;
         client.joinRoom(code, name);
       });
     }
+    if (soloBtn) {
+      soloBtn.addEventListener("click", () => {
+        const name = requireName();
+        if (!name) return;
+        soloPending = true;
+        soloBtn.disabled = true;
+        createWithSettings(name);
+      });
+    }
 
-    client.on("room_created", () => go(PATHS.lobby));
-    client.on("room_joined", () => go(PATHS.lobby));
+    client.on("room_created", () => {
+      if (soloPending) sessionStorage.setItem("qalaqobana_solo_start", "1");
+      soloPending = false;
+      go(PATHS.lobby);
+    });
+    client.on("room_joined", () => {
+      soloPending = false;
+      go(PATHS.lobby);
+    });
     client.on("error", (err) => {
-      const c = document.getElementById("create-room-btn");
-      const j = document.getElementById("join-room-btn");
-      if (c) c.disabled = false;
-      if (j) j.disabled = false;
+      soloPending = false;
+      if (createBtn) createBtn.disabled = false;
+      if (joinBtn) joinBtn.disabled = false;
+      if (soloBtn) soloBtn.disabled = false;
       toast((err && err.message) || "შეცდომა");
     });
+
+    // Resume in-progress session
+    const session = client.loadSession();
+    if (session.roomCode && session.playerId) {
+      client.on("room_state", (room) => {
+        latestRoom = room;
+        ensureOnCorrectPage(room);
+      });
+      client.socket.on("connect", () => client.sync());
+      if (client.socket.connected) client.sync();
+    }
   }
 
   // ---------- LOBBY ----------
@@ -257,147 +287,150 @@
     }
 
     const codeEl = document.getElementById("roomCodeDisplay");
+    const listEl = document.getElementById("playerList");
+    const countBadge = document.getElementById("playerCountBadge");
+    const settingsEl = document.getElementById("lobby-settings");
+    const gridRoot = document.getElementById("categoryGrid");
     const startBtn = document.getElementById("startGameBtn");
     const copyBtn = document.getElementById("copyBtn");
-    const grid = document.getElementById("categoryGrid");
+    const shareBtn = document.getElementById("shareBtn");
 
-    // neutralize old inline handlers by replacing start button listener
-    if (startBtn) {
-      const clone = startBtn.cloneNode(true);
-      startBtn.parentNode.replaceChild(clone, startBtn);
-      clone.addEventListener("click", () => {
-        if (!latestRoom || latestRoom.host_id !== latestRoom.you) {
-          toast("მხოლოდ მასპინძელი იწყებს");
-          return;
-        }
-        clone.disabled = true;
-        client.startRound();
-      });
+    function roomCode() {
+      return (latestRoom && latestRoom.code) || session.roomCode;
     }
 
     if (copyBtn) {
       copyBtn.onclick = () => {
-        const code = (latestRoom && latestRoom.code) || session.roomCode;
-        navigator.clipboard.writeText(code).then(() => toast("კოდი დაკოპირდა")).catch(() => toast(code));
+        navigator.clipboard.writeText(roomCode()).then(() => toast("კოდი დაკოპირდა")).catch(() => toast(roomCode()));
       };
     }
+    if (shareBtn) {
+      shareBtn.onclick = () => {
+        const url = location.origin + "/?join=" + roomCode();
+        if (navigator.share) navigator.share({ title: "ქალაქობანა", text: "შემომიერთდი: " + roomCode(), url: url });
+        else navigator.clipboard.writeText(url).then(() => toast("ბმული დაკოპირდა"));
+      };
+    }
+    if (startBtn) {
+      startBtn.addEventListener("click", () => {
+        if (!isHostOf(latestRoom)) {
+          toast("მხოლოდ მასპინძელი იწყებს");
+          return;
+        }
+        startBtn.disabled = true;
+        client.startRound();
+      });
+    }
 
-    window.copyRoomCode = function () {
-      const code = (latestRoom && latestRoom.code) || session.roomCode;
-      navigator.clipboard.writeText(code).then(() => toast("კოდი დაკოპირდა"));
-    };
-    window.shareInviteLink = function () {
-      const code = (latestRoom && latestRoom.code) || session.roomCode;
-      const url = location.origin + "/?join=" + code;
-      if (navigator.share) navigator.share({ title: "ქალაქობანა", text: "შემომიერთდი: " + code, url: url });
-      else navigator.clipboard.writeText(url);
-    };
-    window.toggleQrModal = function (show) {
-      const modal = document.getElementById("qrModal");
-      if (!modal) return;
-      modal.classList.toggle("hidden", !show);
-    };
+    function collectCheckedCats() {
+      const cats = Array.from(gridRoot.querySelectorAll("input[data-cat]:checked")).map((i) =>
+        i.getAttribute("data-cat")
+      );
+      REQUIRED_CATS.forEach((r) => {
+        if (cats.indexOf(r) < 0) cats.push(r);
+      });
+      return cats;
+    }
+
+    if (gridRoot && !gridRoot._qBound) {
+      gridRoot._qBound = true;
+      gridRoot.addEventListener("change", (e) => {
+        const input = e.target;
+        if (!input.matches || !input.matches("input[data-cat]")) return;
+        if (!isHostOf(latestRoom)) {
+          toast("მხოლოდ მასპინძელი ირჩევს კატეგორიებს");
+          input.checked = (latestRoom.categories || []).indexOf(input.getAttribute("data-cat")) >= 0;
+          return;
+        }
+        const key = input.getAttribute("data-cat");
+        if (!input.checked && REQUIRED_CATS.indexOf(key) >= 0) {
+          toast("ეს კატეგორია სავალდებულოა");
+          input.checked = true;
+          return;
+        }
+        const cats = collectCheckedCats();
+        const badge = document.getElementById("categoryCountBadge");
+        if (badge) badge.textContent = cats.length + " არჩეულია";
+        client.setSettings({ categories: cats });
+      });
+    }
 
     function renderLobby(room) {
-      if (codeEl) codeEl.textContent = room.code;
       updateChrome(room);
-
-      // players list: find left column list container
-      const listHost = document.querySelector(".lg\\:col-span-7 .flex.flex-col.gap-space-xs, .lg\\:col-span-7 .flex.flex-col.gap-space-sm");
-      const playersWrap =
-        document.querySelector("section.lg\\:col-span-7 > .flex.flex-col.gap-space-xs") ||
-        document.querySelector("section.lg\\:col-span-7 .flex.flex-col.gap-space-sm");
-
-      // Prefer rebuilding under the "მოთამაშეთა სია" heading's next sibling
-      const heading = Array.from(document.querySelectorAll("h2")).find((h) =>
-        h.textContent.includes("მოთამაშეთა სია")
-      );
-      let hostList = heading && heading.parentElement && heading.parentElement.nextElementSibling;
-      if (!hostList && heading) {
-        hostList = heading.closest("div").parentElement.querySelector(".flex.flex-col.gap-space-xs, .flex.flex-col.gap-space-sm");
+      if (codeEl) codeEl.textContent = room.code;
+      if (settingsEl) {
+        settingsEl.textContent = room.max_rounds + " რაუნდი · " + room.round_seconds + " წმ / რაუნდი";
       }
-
       const players = room.players || [];
-      const connected = players.filter((p) => p.connected);
-      if (heading) {
-        const badge = heading.parentElement.querySelector("span.rounded-full");
-        if (badge) badge.textContent = connected.length + " / 8";
-      }
-
-      if (hostList) {
-        hostList.innerHTML = connected
+      if (countBadge) countBadge.textContent = players.length + " / 8";
+      if (listEl) {
+        listEl.innerHTML = players
           .map((p) => {
-            const isHost = p.id === room.host_id;
-            const isYou = p.id === room.you;
-            return `<div class="group relative rounded-xl ${isYou ? "bg-surface-container-high" : "bg-surface-container"} p-space-sm sm:p-space-md flex items-center justify-between shadow-md">
-              <div class="flex items-center gap-space-sm min-w-0">
-                <div class="w-12 h-12 rounded-xl ${isHost ? "bg-gradient-to-tr from-amber-600 to-primary text-on-primary" : "bg-surface-container-highest text-secondary"} flex items-center justify-center font-bold shrink-0 shadow-md">${initial(p.name)}</div>
-                <div class="flex flex-col min-w-0">
+            const host = p.id === room.host_id;
+            const you = p.id === room.you;
+            return `<div class="flex items-center justify-between p-3.5 rounded-xl ${you ? "bg-surface-container-high border border-secondary/20" : "bg-surface-container border border-surface-variant/20"} shadow-md">
+              <div class="flex items-center gap-3 min-w-0">
+                <div class="w-11 h-11 rounded-xl ${host ? "bg-gradient-to-tr from-amber-600 to-primary text-on-primary shadow-[0_0_16px_rgba(245,166,35,0.35)]" : "bg-surface-container-highest text-secondary"} flex items-center justify-center font-bold shrink-0">${initial(p.name)}</div>
+                <div class="min-w-0">
                   <div class="flex items-center gap-1.5 flex-wrap">
-                    <span class="font-body-lg text-body-lg text-on-surface truncate font-bold">${escapeHtml(p.name)}</span>
-                    ${isHost ? '<span class="px-1.5 py-0.5 rounded bg-primary/20 text-primary font-label-sm text-label-sm">მასპინძელი</span>' : ""}
-                    ${isYou ? '<span class="px-1.5 py-0.5 rounded bg-secondary/20 text-secondary font-label-sm text-label-sm">შენ</span>' : ""}
+                    <span class="font-bold truncate">${escapeHtml(p.name)}</span>
+                    ${host ? '<span class="text-[10px] px-1.5 py-0.5 rounded bg-primary/20 text-primary font-bold">მასპინძელი</span>' : ""}
+                    ${you ? '<span class="text-[10px] px-1.5 py-0.5 rounded bg-secondary/20 text-secondary font-bold">შენ</span>' : ""}
                   </div>
-                  <span class="font-body-sm text-body-sm text-on-surface-variant">ქულა: ${p.total_score}</span>
+                  <span class="text-xs text-on-surface-variant">${p.total_score} ქ</span>
                 </div>
-              </div>
-              <div class="px-space-sm py-1 rounded-lg bg-surface-container-lowest flex items-center gap-1.5">
-                <span class="relative inline-flex rounded-full h-2 w-2 bg-secondary"></span>
-                <span class="font-label-sm text-label-sm text-secondary font-bold uppercase">ონლაინ</span>
               </div>
             </div>`;
           })
           .join("");
       }
 
-      // categories
-      if (grid) {
-        const isHost = room.host_id === room.you;
-        grid.innerHTML = Object.keys(CAT)
+      if (gridRoot) {
+        const host = isHostOf(room);
+        gridRoot.innerHTML = Object.keys(CAT)
           .map((key) => {
-            const checked = room.categories.includes(key) ? "checked" : "";
-            const disabled = isHost ? "" : "disabled";
-            return `<label class="category-toggle cursor-pointer bg-surface-container-low hover:bg-surface-container-high p-2.5 rounded-lg flex items-center justify-between select-none transition-all shadow-sm">
-              <div class="flex items-center gap-2"><span class="text-[18px]">${CAT[key].emoji}</span>
-              <span class="font-body-md text-body-md text-on-surface font-medium">${CAT[key].ka}</span></div>
-              <input data-cat="${key}" type="checkbox" ${checked} ${disabled} class="w-4 h-4 accent-secondary rounded cursor-pointer"/>
+            const checked = (room.categories || []).indexOf(key) >= 0 ? "checked" : "";
+            const req = REQUIRED_CATS.indexOf(key) >= 0;
+            return `<label class="flex items-center justify-between gap-2 p-3 rounded-xl bg-surface-container border border-surface-variant/25 cursor-pointer hover:bg-surface-container-high transition ${host ? "" : "opacity-70"}">
+              <span class="flex items-center gap-2 text-sm font-semibold">
+                <span class="text-lg">${CAT[key].emoji}</span><span>${CAT[key].ka}</span>${req ? '<span class="text-on-surface-variant text-xs">*</span>' : ""}
+              </span>
+              <input data-cat="${key}" type="checkbox" ${checked} class="w-4 h-4 accent-secondary"/>
             </label>`;
           })
           .join("");
-        grid.querySelectorAll("input[data-cat]").forEach((input) => {
-          input.addEventListener("change", () => {
-            if (room.host_id !== room.you) return;
-            const cats = Array.from(grid.querySelectorAll("input[data-cat]:checked")).map(
-              (i) => i.getAttribute("data-cat")
-            );
-            if (!cats.length) {
-              toast("აირჩიე მინიმუმ 1 კატეგორია");
-              input.checked = true;
-              return;
-            }
-            client.setSettings({ categories: cats });
-          });
-        });
         const badge = document.getElementById("categoryCountBadge");
-        if (badge) badge.textContent = room.categories.length + " არჩეულია";
+        if (badge) badge.textContent = (room.categories || []).length + " არჩეულია";
       }
 
-      const start = document.getElementById("startGameBtn");
-      if (start) {
-        const isHost = room.host_id === room.you;
-        start.style.display = isHost ? "" : "none";
-        start.innerHTML = `<span class="material-symbols-outlined text-[28px]">sports_esports</span><span>თამაშის დაწყება</span><span class="font-mono text-body-md bg-surface-container-lowest/30 px-2 py-0.5 rounded-lg ml-1">${connected.length}/8</span>`;
+      if (startBtn) {
+        startBtn.style.display = isHostOf(room) ? "" : "none";
+        startBtn.disabled = false;
+        startBtn.textContent = "თამაშის დაწყება (" + players.length + "/8)";
       }
     }
 
+    let soloKickoffDone = false;
     client.on("room_state", (room) => {
       latestRoom = room;
       renderLobby(room);
       ensureOnCorrectPage(room);
+      if (
+        !soloKickoffDone &&
+        sessionStorage.getItem("qalaqobana_solo_start") === "1" &&
+        room.state === "lobby" &&
+        isHostOf(room)
+      ) {
+        soloKickoffDone = true;
+        sessionStorage.removeItem("qalaqobana_solo_start");
+        setTimeout(() => client.startRound(), 200);
+      }
     });
     client.on("round_started", () => go(PATHS.arena));
-    client.on("error", (err) => toast((err && err.message) || "შეცდომა"));
-
+    client.on("error", (err) => {
+      if (startBtn) startBtn.disabled = false;
+      toast((err && err.message) || "შეცდომა");
+    });
     client.socket.on("connect", () => client.sync());
     if (client.socket.connected) client.sync();
   }
@@ -410,19 +443,20 @@
       return;
     }
 
-    const leftCol = document.querySelector(".lg\\:col-span-8.flex.flex-col");
+    const forms = document.getElementById("answerForms");
     const stopBtn = document.getElementById("btn-stop-buzzer");
     const timerEl = document.getElementById("game-timer");
     const banner = document.getElementById("stop-announcement-banner");
-    const simBtn = document.getElementById("btn-simulate-stop");
-    if (simBtn) simBtn.style.display = "none";
+    const letterEl = document.getElementById("arena-letter");
+    const roundEl = document.getElementById("arena-round");
+    const scoresEl = document.getElementById("arena-scores");
+    let formsBuiltFor = null;
 
     function gatherAnswers() {
       const out = {};
       document.querySelectorAll("[data-answer-cat]").forEach((input) => {
         const letter = (latestRoom && latestRoom.letter) || "";
-        const rest = input.value || "";
-        out[input.getAttribute("data-answer-cat")] = (letter + rest).trim();
+        out[input.getAttribute("data-answer-cat")] = (letter + (input.value || "")).trim();
       });
       return out;
     }
@@ -440,9 +474,8 @@
       let left = seconds;
       const tick = () => {
         if (timerEl) {
-          const m = String(Math.floor(left / 60)).padStart(2, "0");
-          const s = String(left % 60).padStart(2, "0");
-          timerEl.textContent = m + ":" + s;
+          timerEl.textContent =
+            String(Math.floor(left / 60)).padStart(2, "0") + ":" + String(left % 60).padStart(2, "0");
         }
         if (left <= 0) {
           clearInterval(countdownTimer);
@@ -458,115 +491,60 @@
       countdownTimer = setInterval(tick, 1000);
     }
 
+    function doStop() {
+      if (stoppedLocally) return;
+      stoppedLocally = true;
+      client.updateAnswers(gatherAnswers());
+      setTimeout(() => client.stopRound(), 50);
+    }
+
     function renderArena(room) {
       updateChrome(room);
-      // letter displays
-      document.querySelectorAll(".font-display-letter").forEach((el) => {
-        if (el.closest("main")) el.textContent = room.letter || "-";
-      });
-      // round
-      const roundBits = Array.from(document.querySelectorAll(".font-headline-md")).filter((el) =>
-        /\/\s*\d/.test(el.textContent) || el.textContent.includes("/")
-      );
-      roundBits.forEach((el) => {
-        el.innerHTML = `${room.round_number} <span class="text-surface-variant font-normal">/</span> ${room.max_rounds}`;
-      });
+      if (letterEl) letterEl.textContent = room.letter || "—";
+      if (roundEl) roundEl.textContent = "რაუნდი " + room.round_number + " / " + room.max_rounds;
 
-      if (leftCol && room.state === "playing") {
-        const header = leftCol.querySelector(".flex.items-center.justify-between");
-        const cards = Array.from(leftCol.children).filter((c) => c !== header);
-        // keep header, replace rest
-        cards.forEach((c) => c.remove());
-        room.categories.forEach((key) => {
-          const meta = CAT[key] || { ka: key, emoji: "✨" };
-          const existing = ((room.answers[room.you] || {})[key] || "");
-          let rest = existing;
-          if (room.letter && existing.startsWith(room.letter)) rest = existing.slice(room.letter.length);
-          const card = document.createElement("div");
-          card.className =
-            "bg-surface-container p-space-sm md:p-space-md rounded-xl shadow-md hover:bg-surface-container-high transition-colors flex flex-col gap-1.5";
-          card.innerHTML = `<div class="flex items-center justify-between">
-              <label class="font-label-md text-label-md text-on-surface flex items-center gap-2">
-                <span class="text-[18px]">${meta.emoji}</span><span>${meta.ka}</span>
-              </label>
-            </div>
-            <div class="relative flex items-center bg-surface-container-lowest rounded-lg p-1 shadow-inner focus-within:ring-2 focus-within:ring-secondary/50">
-              <div class="pl-3 pr-1 text-primary font-headline-sm text-headline-sm font-extrabold select-none">${escapeHtml(room.letter || "")}</div>
-              <input data-answer-cat="${key}" class="w-full bg-transparent text-on-surface font-body-lg text-body-lg font-bold outline-none py-1.5 px-1 placeholder:text-outline-variant" type="text" placeholder="ჩაწერე..." value="${escapeAttr(rest)}"/>
-            </div>`;
-          leftCol.appendChild(card);
-        });
-        leftCol.querySelectorAll("[data-answer-cat]").forEach((input) => {
+      const key = room.code + ":" + room.round_number + ":" + (room.categories || []).join(",");
+      if (forms && room.state === "playing" && formsBuiltFor !== key) {
+        formsBuiltFor = key;
+        forms.innerHTML = room.categories
+          .map((cat) => {
+            const meta = CAT[cat] || { ka: cat, emoji: "✨" };
+            let existing = ((room.answers[room.you] || {})[cat] || "");
+            if (room.letter && existing.startsWith(room.letter)) existing = existing.slice(room.letter.length);
+            return `<label class="block bg-surface-container rounded-xl p-4 border border-surface-variant/25 hover:border-secondary/30 transition">
+              <span class="text-sm font-bold flex items-center gap-2 mb-2">${meta.emoji} ${meta.ka}</span>
+              <div class="flex items-center bg-surface-container-lowest rounded-lg px-3 focus-within:ring-2 focus-within:ring-secondary/40 border border-surface-variant/20">
+                <span class="text-primary font-extrabold text-xl pr-2 select-none">${escapeHtml(room.letter || "")}</span>
+                <input data-answer-cat="${cat}" value="${escapeAttr(existing)}" autocomplete="off"
+                  class="w-full bg-transparent py-3 outline-none font-semibold" placeholder="ჩაწერე…"/>
+              </div>
+            </label>`;
+          })
+          .join("");
+        forms.querySelectorAll("[data-answer-cat]").forEach((input) => {
           input.addEventListener("input", scheduleSave);
         });
       }
 
-      // progress strip
-      const progressHost = document.querySelector(".grid.grid-cols-2.sm\\:grid-cols-5");
-      if (progressHost) {
-        const cats = room.categories.length || 1;
-        progressHost.innerHTML = (room.players || [])
-          .filter((p) => p.connected)
+      if (scoresEl) {
+        const ranked = [...(room.players || [])].sort((a, b) => b.total_score - a.total_score);
+        scoresEl.innerHTML = ranked
           .map((p) => {
-            const ans = room.answers[p.id] || (p.id === room.you ? room.answers[room.you] : {}) || {};
-            // during play only own answers known - show ? for others
-            let filled = 0;
-            if (p.id === room.you) {
-              filled = room.categories.filter((c) => (ans[c] || "").trim()).length;
-            }
-            const pct = p.id === room.you ? Math.round((filled / cats) * 100) : 0;
-            const label = p.id === room.you ? "შენ" : escapeHtml(p.name);
-            return `<div class="bg-surface-container-low p-2 rounded-lg flex flex-col gap-1">
-              <div class="flex items-center justify-between">
-                <span class="font-label-sm text-label-sm ${p.id === room.you ? "text-secondary font-bold" : "text-on-surface-variant"} truncate">${label}</span>
-                <span class="font-label-sm text-label-sm font-mono">${p.id === room.you ? filled + "/" + cats : "…"}</span>
-              </div>
-              <div class="w-full bg-surface-container-lowest h-1.5 rounded-full overflow-hidden">
-                <div class="bg-secondary h-full rounded-full" style="width:${pct}%"></div>
-              </div>
+            const you = p.id === room.you;
+            return `<div class="flex justify-between text-sm ${you ? "text-secondary font-bold" : "text-on-surface-variant"}">
+              <span>${you ? "შენ" : escapeHtml(p.name)}</span>
+              <span class="font-mono">${p.total_score}</span>
             </div>`;
           })
           .join("");
       }
-
-      // live scores from totals
-      const scoreCard = Array.from(document.querySelectorAll(".lg\\:col-span-4 .flex.flex-col.gap-1\\.5")).pop();
-      const scoreLists = document.querySelectorAll(".lg\\:col-span-4 .flex.flex-col.gap-1\\.5");
-      scoreLists.forEach((list) => {
-        if (!list.closest(".sticky")) return;
-        const ranked = [...(room.players || [])].sort((a, b) => b.total_score - a.total_score);
-        list.innerHTML = ranked
-          .map((p, i) => {
-            const you = p.id === room.you;
-            return `<div class="flex items-center justify-between p-2 rounded-lg ${you ? "bg-surface-container text-on-surface" : "bg-surface-container-lowest/60 text-on-surface-variant"} font-body-sm text-body-sm">
-              <div class="flex items-center gap-2">
-                <span class="w-5 h-5 rounded-full ${you ? "bg-primary text-on-primary" : "bg-surface-container-high"} font-bold flex items-center justify-center font-mono text-[11px]">${i + 1}</span>
-                <span class="${you ? "font-bold text-primary" : ""}">${you ? "შენ (" + escapeHtml(p.name) + ")" : escapeHtml(p.name)}</span>
-              </div>
-              <span class="font-mono font-extrabold ${you ? "text-primary" : ""}">${p.total_score} ქ</span>
-            </div>`;
-          })
-          .join("");
-      });
     }
 
-    if (stopBtn) {
-      const clone = stopBtn.cloneNode(true);
-      stopBtn.parentNode.replaceChild(clone, stopBtn);
-      clone.addEventListener("click", () => {
-        if (stoppedLocally) return;
-        stoppedLocally = true;
-        client.updateAnswers(gatherAnswers());
-        setTimeout(() => client.stopRound(), 50);
-      });
-    }
-
+    if (stopBtn) stopBtn.addEventListener("click", doStop);
     window.addEventListener("keydown", (e) => {
-      if (e.code === "Space" && e.target.tagName !== "INPUT" && !stoppedLocally) {
+      if (e.code === "Space" && e.target.tagName !== "INPUT") {
         e.preventDefault();
-        stoppedLocally = true;
-        client.updateAnswers(gatherAnswers());
-        setTimeout(() => client.stopRound(), 50);
+        doStop();
       }
     });
 
@@ -582,12 +560,8 @@
     client.on("round_stopped", (payload) => {
       clearInterval(countdownTimer);
       const who = payload && payload.stopped_by;
-      const name =
-        (latestRoom &&
-          latestRoom.players &&
-          latestRoom.players.find((p) => p.id === who) &&
-          latestRoom.players.find((p) => p.id === who).name) ||
-        "მოთამაშე";
+      const player = (latestRoom && latestRoom.players || []).find((p) => p.id === who);
+      const name = player ? player.name : "მოთამაშე";
       if (banner) {
         banner.classList.remove("hidden");
         const h4 = banner.querySelector("h4");
@@ -596,13 +570,12 @@
       document.querySelectorAll("[data-answer-cat]").forEach((i) => {
         i.disabled = true;
       });
-      setTimeout(() => go(PATHS.results), 900);
+      setTimeout(() => go(PATHS.results), 800);
     });
     client.on("error", (err) => {
       stoppedLocally = false;
       toast((err && err.message) || "შეცდომა");
     });
-
     client.socket.on("connect", () => client.sync());
     if (client.socket.connected) client.sync();
   }
@@ -616,11 +589,16 @@
     }
 
     const nextBtn = document.getElementById("nextRoundBtn");
+    const pending = document.getElementById("q-pending");
+    const body = document.getElementById("results-body");
+    const table = document.getElementById("results-table");
+    const sidebar = document.getElementById("results-sidebar");
+    const letterEl = document.getElementById("results-letter");
+    const titleEl = document.getElementById("results-title");
+
     if (nextBtn) {
-      const clone = nextBtn.cloneNode(true);
-      nextBtn.parentNode.replaceChild(clone, nextBtn);
-      clone.addEventListener("click", () => {
-        if (!latestRoom || latestRoom.host_id !== latestRoom.you) {
+      nextBtn.addEventListener("click", () => {
+        if (!isHostOf(latestRoom)) {
           toast("მასპინძელი იწყებს შემდეგ რაუნდს");
           return;
         }
@@ -632,115 +610,100 @@
       });
     }
 
+    function pointsBadge(pts) {
+      if (pts >= 15) return '<span class="text-[10px] font-bold text-secondary">+15</span>';
+      if (pts >= 10) return '<span class="text-[10px] font-bold text-primary">+10</span>';
+      if (pts >= 5) return '<span class="text-[10px] font-bold text-on-surface-variant">+5</span>';
+      return '<span class="text-[10px] text-error">0</span>';
+    }
+
     function renderResults(room) {
       updateChrome(room);
-      const letterEls = document.querySelectorAll(".font-display-letter");
-      letterEls.forEach((el) => {
-        if (el.closest("main")) el.textContent = room.letter || "-";
-      });
+      if (letterEl) letterEl.textContent = room.letter || "—";
 
-      const title = Array.from(document.querySelectorAll("h1")).find((h) =>
-        h.textContent.includes("შედეგები") || h.textContent.includes("რაუნდი")
-      );
-      if (title) {
-        title.textContent =
-          room.state === "verifying"
-            ? `რაუნდი ${room.round_number} - შემოწმება...`
-            : `რაუნდი ${room.round_number}-ის შედეგები`;
+      const verifying = room.state === "verifying";
+      if (pending) pending.classList.toggle("hidden", !verifying);
+      if (body) body.classList.toggle("hidden", verifying || room.state !== "results");
+
+      if (titleEl) {
+        titleEl.textContent = verifying
+          ? "რაუნდი " + room.round_number + " — შემოწმება…"
+          : "რაუნდი " + room.round_number + "-ის შედეგები";
       }
 
-      const next = document.getElementById("nextRoundBtn");
-      if (next) {
-        const isHost = room.host_id === room.you;
-        next.style.visibility = isHost && room.state === "results" ? "visible" : "hidden";
-        if (room.match_over) {
-          next.innerHTML = `<span class="material-symbols-outlined text-[20px]">emoji_events</span><span>ფინალური პოდიუმი</span>`;
-        } else {
-          next.innerHTML = `<span class="material-symbols-outlined text-[20px]">fast_forward</span><span>შემდეგი რაუნდი (${room.round_number + 1}/${room.max_rounds})</span>`;
-        }
-      }
+      if (room.state !== "results" || verifying) return;
 
-      const players = (room.players || []).filter((p) => p.connected || room.answers[p.id]);
-      const table = document.querySelector("table");
-      if (table && room.state === "results") {
-        const thead = table.querySelector("thead tr");
+      const players = room.players || [];
+      if (table) {
+        const thead = table.querySelector("thead");
         const tbody = table.querySelector("tbody");
-        if (thead && tbody) {
+        if (thead) {
           thead.innerHTML =
-            `<th class="py-3.5 px-4 w-[22%]">კატეგორია</th>` +
+            "<tr class=\"text-left text-on-surface-variant text-xs uppercase\">" +
+            "<th class=\"py-2 pr-3\">კატეგორია</th>" +
             players
               .map((p) => {
                 const you = p.id === room.you;
-                return `<th class="py-3.5 px-3 ${you ? "bg-surface-container-high/60" : ""}">
-                  <div class="flex items-center gap-1.5">
-                    <div class="w-5 h-5 rounded-full bg-surface-container flex items-center justify-center text-[10px]">${initial(p.name)}</div>
-                    <span class="${you ? "text-secondary font-bold" : ""}">${you ? "შენ" : escapeHtml(p.name)}</span>
-                  </div></th>`;
+                return `<th class="py-2 px-2 ${you ? "text-secondary" : ""}">${you ? "შენ" : escapeHtml(p.name)}</th>`;
               })
-              .join("");
-
-          tbody.innerHTML = room.categories
+              .join("") +
+            "</tr>";
+        }
+        if (tbody) {
+          tbody.innerHTML = (room.categories || [])
             .map((cat) => {
               const meta = CAT[cat] || { ka: cat, emoji: "✨" };
               const cells = players
                 .map((p) => {
                   const v = ((room.verdicts[p.id] || {})[cat]) || {};
                   const pts = ((room.round_points[p.id] || {})[cat]) || 0;
-                  const ans = v.answer || ((room.answers[p.id] || {})[cat]) || "-";
+                  const ans = v.answer || ((room.answers[p.id] || {})[cat]) || "—";
                   const invalid = v.valid === false;
-                  return `<td class="py-3 px-3 ${p.id === room.you ? "bg-surface-container-high/40" : ""}">
-                    <div class="flex flex-col gap-1">
-                      <span class="${invalid ? "line-through text-error" : "text-on-surface"} font-semibold">${escapeHtml(ans || "-")}</span>
+                  return `<td class="py-2.5 px-2 align-top">
+                    <div class="flex flex-col gap-0.5">
+                      <span class="${invalid ? "line-through text-error" : ""} font-semibold">${escapeHtml(ans)}</span>
                       ${pointsBadge(pts)}
                     </div></td>`;
                 })
                 .join("");
-              return `<tr class="bg-surface-container-low hover:bg-surface-container transition-colors">
-                <td class="py-3 px-4"><div class="flex items-center gap-2"><span class="text-lg">${meta.emoji}</span><span class="font-bold">${meta.ka}</span></div></td>
-                ${cells}
-              </tr>`;
+              return `<tr class="border-t border-surface-variant/30">
+                <td class="py-2.5 pr-3 font-bold whitespace-nowrap">${meta.emoji} ${meta.ka}</td>${cells}</tr>`;
             })
             .join("");
         }
       }
 
-      // sidebar round scores
-      const side = document.querySelector(".xl\\:col-span-3 .flex.flex-col.gap-2\\.5");
-      if (side && room.state === "results") {
+      if (sidebar) {
         const ranked = [...players].sort(
           (a, b) => (room.round_totals[b.id] || 0) - (room.round_totals[a.id] || 0)
         );
-        side.innerHTML = ranked
+        sidebar.innerHTML = ranked
           .map((p, i) => {
             const you = p.id === room.you;
             return `<div class="flex items-center justify-between p-2.5 rounded-lg ${you ? "bg-surface-container-highest" : "bg-surface-container"}">
-              <div class="flex items-center gap-2.5 min-w-0">
-                <span class="w-6 h-6 rounded-full bg-primary/20 text-primary flex items-center justify-center font-bold text-xs">${i + 1}</span>
-                <span class="font-bold ${you ? "text-secondary" : "text-on-surface"} truncate">${you ? "შენ (" + escapeHtml(p.name) + ")" : escapeHtml(p.name)}</span>
-              </div>
-              <div class="flex flex-col items-end">
-                <span class="font-headline-sm text-headline-sm text-primary leading-none">+${room.round_totals[p.id] || 0}</span>
-                <span class="text-[10px] text-on-surface-variant">ჯამი: ${p.total_score} ქ</span>
-              </div>
+              <span class="font-bold text-sm truncate">${i + 1}. ${you ? "შენ" : escapeHtml(p.name)}</span>
+              <span class="text-primary font-extrabold">+${room.round_totals[p.id] || 0}</span>
             </div>`;
           })
           .join("");
+      }
+
+      if (nextBtn) {
+        nextBtn.style.display = isHostOf(room) ? "" : "none";
+        nextBtn.textContent = room.match_over
+          ? "ფინალური შედეგები"
+          : "შემდეგი რაუნდი (" + (room.round_number + 1) + "/" + room.max_rounds + ")";
       }
     }
 
     client.on("room_state", (room) => {
       latestRoom = room;
       renderResults(room);
-      if (room.match_over && room.state === "results") {
-        // allow viewing results briefly; auto podium optional
-      } else {
-        ensureOnCorrectPage(room);
-      }
+      if (!(room.match_over && room.state === "results")) ensureOnCorrectPage(room);
     });
     client.on("round_started", () => go(PATHS.arena));
     client.on("verification_complete", () => client.sync());
     client.on("error", (err) => toast((err && err.message) || "შეცდომა"));
-
     client.socket.on("connect", () => client.sync());
     if (client.socket.connected) client.sync();
   }
@@ -754,11 +717,13 @@
     }
 
     const replay = document.getElementById("btn-replay");
+    const standings = document.getElementById("podium-standings");
+    const topEl = document.getElementById("podium-top");
+    const sub = document.getElementById("podium-subtitle");
+
     if (replay) {
-      const clone = replay.cloneNode(true);
-      replay.parentNode.replaceChild(clone, replay);
-      clone.addEventListener("click", () => {
-        if (!latestRoom || latestRoom.host_id !== latestRoom.you) {
+      replay.addEventListener("click", () => {
+        if (!isHostOf(latestRoom)) {
           toast("მასპინძელი აბრუნებს ლობიში");
           return;
         }
@@ -778,39 +743,41 @@
     function renderPodium(room) {
       updateChrome(room);
       const ranked = [...(room.players || [])].sort((a, b) => b.total_score - a.total_score);
-      const standings = document.querySelector(".lg\\:col-span-7 .flex.flex-col.gap-space-xs");
-      if (standings) {
-        standings.innerHTML = ranked
+      if (sub) sub.textContent = room.max_rounds + " რაუნდი · ოთახი #" + room.code;
+
+      if (topEl) {
+        const medals = ["🥇", "🥈", "🥉"];
+        topEl.innerHTML = ranked
+          .slice(0, 3)
           .map((p, i) => {
             const you = p.id === room.you;
-            return `<div class="flex items-center justify-between p-space-sm rounded-lg ${you ? "bg-secondary-container/10" : "bg-surface-container"}">
-              <div class="flex items-center gap-space-sm min-w-0">
-                <span class="font-label-md text-label-md ${i === 0 ? "text-primary" : "text-on-surface-variant"} font-bold w-5 text-center">${i + 1}</span>
-                <div class="w-8 h-8 rounded-full bg-surface-variant flex items-center justify-center font-bold text-label-sm">${initial(p.name)}</div>
-                <span class="font-body-md text-body-md ${you ? "text-secondary" : "text-on-surface"} font-bold truncate">${you ? "შენ (" + escapeHtml(p.name) + ")" : escapeHtml(p.name)}</span>
-              </div>
-              <span class="bg-surface-container-highest px-2.5 py-1 rounded-md font-label-md text-label-md font-bold">${p.total_score} ქ</span>
+            const size = i === 0 ? "text-2xl" : "text-lg";
+            return `<div class="flex-1 bg-surface-container-low rounded-2xl p-5 text-center border border-surface-variant/30 shadow-lg ${i === 0 ? "sm:mb-6 sm:scale-105 border-primary/30 shadow-[0_0_32px_rgba(245,166,35,0.2)]" : ""}">
+              <div class="text-3xl mb-2">${medals[i]}</div>
+              <div class="${size} font-extrabold ${you ? "text-secondary" : "text-on-surface"} truncate">${escapeHtml(p.name)}</div>
+              <div class="text-primary font-mono font-extrabold text-xl mt-2">${p.total_score} ქ</div>
             </div>`;
           })
           .join("");
       }
 
-      // update top-3 name/score texts if present
-      const podiumNames = [
-        document.querySelector(".order-1.md\\:order-2 .font-headline-md"),
-        document.querySelector(".order-2.md\\:order-1 .font-headline-sm"),
-        document.querySelector(".order-3 .font-headline-sm"),
-      ];
-      const podiumScores = document.querySelectorAll(
-        ".order-1.md\\:order-2 .font-display-letter, .order-2.md\\:order-1 .font-display-letter, .order-3 .font-display-letter"
-      );
-      // gold center = ranked[0], silver left = ranked[1], bronze = ranked[2]
-      if (ranked[0] && podiumNames[0]) podiumNames[0].textContent = ranked[0].name;
-      if (ranked[1] && podiumNames[1]) {
-        podiumNames[1].textContent =
-          ranked[1].id === room.you ? "შენ (" + ranked[1].name + ")" : ranked[1].name;
+      if (standings) {
+        standings.innerHTML = ranked
+          .map((p, i) => {
+            const you = p.id === room.you;
+            return `<div class="flex items-center justify-between p-3 rounded-lg ${you ? "bg-secondary/10" : "bg-surface-container"}">
+              <div class="flex items-center gap-2.5 min-w-0">
+                <span class="w-6 text-center font-bold text-on-surface-variant">${i + 1}</span>
+                <span class="w-8 h-8 rounded-full bg-surface-variant flex items-center justify-center font-bold text-sm">${initial(p.name)}</span>
+                <span class="font-bold truncate ${you ? "text-secondary" : ""}">${you ? "შენ (" + escapeHtml(p.name) + ")" : escapeHtml(p.name)}</span>
+              </div>
+              <span class="font-mono font-bold">${p.total_score} ქ</span>
+            </div>`;
+          })
+          .join("");
       }
-      if (ranked[2] && podiumNames[2]) podiumNames[2].textContent = ranked[2].name;
+
+      if (replay) replay.style.display = isHostOf(room) ? "" : "none";
     }
 
     client.on("room_state", (room) => {
@@ -823,30 +790,6 @@
     if (client.socket.connected) client.sync();
   }
 
-  function escapeHtml(s) {
-    return String(s || "")
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;");
-  }
-  function escapeAttr(s) {
-    return escapeHtml(s).replace(/'/g, "&#39;");
-  }
-
-  // nav links
-  document.querySelectorAll("a[data-path]").forEach((a) => {
-    a.addEventListener("click", (e) => {
-      const path = a.getAttribute("data-path");
-      if (path === "lobbies" || path === "arena" || path === "leaderboard") {
-        e.preventDefault();
-        if (path === "lobbies") go(latestRoom ? PATHS.lobby : PATHS.home);
-        if (path === "arena" && latestRoom) go(routeForState(latestRoom));
-        if (path === "leaderboard" && latestRoom) go(PATHS.podium);
-      }
-    });
-  });
-
   client.on("error", (err) => toast((err && err.message) || "შეცდომა"));
 
   if (page === "home") initHome();
@@ -854,14 +797,4 @@
   if (page === "arena") initArena();
   if (page === "results") initResults();
   if (page === "podium") initPodium();
-
-  // deep link ?join=CODE
-  if (page === "home") {
-    const params = new URLSearchParams(location.search);
-    const join = params.get("join");
-    if (join) {
-      const codeInput = document.getElementById("room-code-input");
-      if (codeInput) codeInput.value = join.toUpperCase();
-    }
-  }
 })();
