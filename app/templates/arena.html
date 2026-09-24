@@ -393,74 +393,51 @@
 </div>
 <script>
   (function initActiveGameScreen() {
-    const timerElem = document.getElementById('game-timer');
-    const stopBuzzer = document.getElementById('btn-stop-buzzer');
     const simulateStopBtn = document.getElementById('btn-simulate-stop');
-    const announcementBanner = document.getElementById('stop-announcement-banner');
-    
-    // Live countdown simulation
-    let secondsLeft = 28;
-    const interval = setInterval(() => {
-      if (secondsLeft > 0) {
-        secondsLeft--;
-        const formatted = secondsLeft < 10 ? '0' + secondsLeft : secondsLeft;
-        if (timerElem) {
-          timerElem.textContent = '00:' + formatted;
-          if (secondsLeft <= 5) {
-            timerElem.classList.add('text-error', 'animate-ping');
-          }
-        }
-      } else {
-        clearInterval(interval);
-      }
-    }, 1000);
+    if (simulateStopBtn) simulateStopBtn.style.display = 'none';
 
-    // Stop Buzzer Trigger Action
-    function triggerStopAction(caller) {
-      if (announcementBanner) {
-        if (caller === 'you') {
-          announcementBanner.querySelector('h4').textContent = 'შენ დააჭირე STOP-ს!';
-          announcementBanner.querySelector('p').textContent = 'ყველა მოთამაშის გრაფა დაიბლოკა! მიმდინარეობს შედეგების დაჯამება...';
-        } else {
-          announcementBanner.querySelector('h4').textContent = 'დათომ დააჭირა STOP-ს!';
-          announcementBanner.querySelector('p').textContent = 'თამაში გაჩერებულია! ყველა გრაფა იბლოკება და გადავდივართ შემოწმებაზე...';
-        }
-        announcementBanner.classList.remove('hidden');
-        announcementBanner.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }
-
-      // Lock all inputs
-      const inputs = document.querySelectorAll('input[type="text"]');
-      inputs.forEach(input => {
-        input.disabled = true;
-        input.classList.add('opacity-75', 'cursor-not-allowed');
+    // Real STOP is bound by live.js. Fallback if live.js did not load.
+    const stopBuzzer = document.getElementById('btn-stop-buzzer');
+    function fallbackStop() {
+      if (window.qalaqPost) return; // live.js will handle the rebound button
+      const letterEl = document.querySelector('.pl-3.pr-1.text-primary');
+      const letter = letterEl ? letterEl.textContent.trim() : '';
+      const ids = {
+        country: 'cat-country', city: 'cat-city', animal: 'cat-animal', plant: 'cat-plant',
+        name: 'cat-name', river: 'cat-river', film: 'cat-film', food: 'cat-food',
+      };
+      const form = document.createElement('form');
+      form.method = 'POST';
+      form.action = '/arena/stop';
+      Object.keys(ids).forEach(function (cat) {
+        const input = document.getElementById(ids[cat]);
+        if (!input) return;
+        let v = (input.value || '').trim();
+        if (v && letter && v.charAt(0) !== letter) v = letter + v;
+        const h = document.createElement('input');
+        h.type = 'hidden';
+        h.name = cat;
+        h.value = v;
+        form.appendChild(h);
       });
-
-      if (stopBuzzer) {
-        stopBuzzer.disabled = true;
-        stopBuzzer.classList.add('opacity-50', 'pointer-events-none');
-      }
+      document.body.appendChild(form);
+      form.submit();
     }
-
     if (stopBuzzer) {
-      stopBuzzer.addEventListener('click', () => triggerStopAction('you'));
+      stopBuzzer.addEventListener('click', fallbackStop);
     }
-
-    if (simulateStopBtn) {
-      simulateStopBtn.addEventListener('click', () => triggerStopAction('opponent'));
-    }
-
-    // Hotkey listener (Enter or Space to trigger STOP when ready)
     window.addEventListener('keydown', (e) => {
-      // If focused inside an input, only Enter submits
       if (e.code === 'Space' && e.target.tagName !== 'INPUT') {
         e.preventDefault();
-        triggerStopAction('you');
+        const btn = document.getElementById('btn-stop-buzzer');
+        if (btn) btn.click();
       }
     });
   })();
 </script></main><footer class="w-full bg-surface-container-lowest/90 backdrop-blur-md relative z-20 shadow-[0_-4px_20px_rgba(0,0,0,0.4)]"><div class="max-w-[1280px] mx-auto px-margin md:px-margin-tablet lg:px-margin-desktop py-space-md flex flex-col md:flex-row items-center justify-between gap-space-md"><div class="flex flex-wrap items-center justify-center gap-space-sm md:gap-space-md font-label-sm text-label-sm text-on-surface-variant"><span class="text-primary font-bold flex items-center gap-1"><span class="material-symbols-outlined text-[14px]">keyboard</span>ცხელი ღილაკები:</span><span class="bg-surface-container px-2 py-0.5 rounded text-on-surface font-mono">TAB</span><span class="text-on-surface-variant">შემდეგი გრაფა</span><span class="text-surface-variant">•</span><span class="bg-surface-container px-2 py-0.5 rounded text-on-surface font-mono">ENTER</span><span class="text-on-surface-variant">დადასტურება</span><span class="text-surface-variant">•</span><span class="bg-surface-container px-2 py-0.5 rounded text-on-surface font-mono">ESC</span><span class="text-on-surface-variant">მენიუ</span></div><div class="flex items-center gap-space-lg text-on-surface-variant font-label-sm text-label-sm"><a class="text-on-surface-variant hover:text-secondary transition-colors flex items-center gap-1" data-path="rules" href="#"><span class="material-symbols-outlined text-[15px]">menu_book</span>სრული წესები</a><span class="text-surface-variant">|</span><span class="text-on-surface-variant opacity-80">© 2025 ქალაქობანა • Prime Arena</span></div></div></footer>
-<script type="application/json" id="boot">{% if room is defined and room %}{{ room | tojson }}{% else %}null{% endif %}</script>
+
+
 <script src="https://cdn.socket.io/4.7.5/socket.io.min.js" crossorigin="anonymous"></script>
-<script src="{{ url_for('static', filename='js/live.js') }}"></script>
+<script src="{{ url_for('static', filename='js/client.js') }}"></script>
+<script src="{{ url_for('static', filename='js/app.js') }}"></script>
 </body></html>

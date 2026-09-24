@@ -242,13 +242,14 @@ def start_round(room_code: str, player_id: str) -> Room:
         raise GameError("Cannot start a round right now", "bad_state")
     if room.state == STATE_RESULTS and room.round_number >= room.max_rounds:
         raise GameError("Match is over — return to lobby or podium", "match_over")
-    if len(room.connected_players()) < MIN_PLAYERS_TO_START:
+    # Count seated players (HTTP session), not only live sockets
+    if len(room.players) < MIN_PLAYERS_TO_START:
         raise GameError("Not enough players", "need_players")
 
     room.round_number += 1
     room.letter = random.choice(GEORGIAN_LETTERS)
     room.state = STATE_PLAYING
-    room.answers = {pid: {} for pid in room.players if room.players[pid].connected}
+    room.answers = {pid: {} for pid in room.players}
     room.verdicts = {}
     room.round_points = {}
     room.round_totals = {}
@@ -360,6 +361,12 @@ def attach_sid(room_code: str, player_id: str, sid: str) -> Room:
 
 
 def handle_disconnect(sid: str) -> Room | None:
+    """Clear the socket id only.
+
+    Do not remove the player or delete the room — HTTP sessions are the
+    source of truth for membership. Werkzeug often drops websocket upgrades
+    which would otherwise wipe a solo lobby mid-click.
+    """
     mapping = store.unbind_sid(sid)
     if not mapping:
         return None
@@ -370,16 +377,8 @@ def handle_disconnect(sid: str) -> Room | None:
     player = room.players.get(player_id)
     if not player:
         return room
-    player.connected = False
-    player.sid = None
-    if room.state == STATE_LOBBY and not room.connected_players():
-        store.delete_room(room.code)
-        return None
-    # Transfer host if needed
-    if room.host_id == player_id:
-        connected = room.connected_players()
-        if connected:
-            room.host_id = connected[0].id
+    if player.sid == sid:
+        player.sid = None
     store.save_room(room)
     return room
 

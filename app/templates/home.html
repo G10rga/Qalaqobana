@@ -440,39 +440,11 @@
           e.target.value = e.target.value.toUpperCase();
         });
       }
-
-      // Feedback for Create Room & Join
-      if (createBtn) {
-        createBtn.addEventListener("click", () => {
-          const nick = nicknameInput ? nicknameInput.value.trim() : "მოთამაშე";
-          createBtn.innerHTML = `<span class="material-symbols-outlined text-[24px] animate-spin">progress_activity</span> ოთახი იქმნება...`;
-          setTimeout(() => {
-            alert(`ოთახი წარმატებით შეიქმნა!\nმასპინძელი: ${nick}\nკოდი: GEO-${Math.floor(1000 + Math.random() * 9000)}`);
-            createBtn.innerHTML = `<span class="material-symbols-outlined text-[24px]">add_circle</span> ოთახის შექმნა (Create Arena)`;
-          }, 800);
-        });
-      }
-
-      if (joinBtn && roomCodeInput) {
-        joinBtn.addEventListener("click", () => {
-          const code = roomCodeInput.value.trim();
-          if (!code) {
-            roomCodeInput.focus();
-            roomCodeInput.classList.add("ring-2", "ring-error");
-            setTimeout(() => roomCodeInput.classList.remove("ring-2", "ring-error"), 1200);
-            return;
-          }
-          joinBtn.innerHTML = `<span class="material-symbols-outlined text-[24px] animate-spin">sync</span> დაკავშირება...`;
-          setTimeout(() => {
-            alert(`წარმატებით დაუკავშირდით ოთახს: ${code}!`);
-            joinBtn.innerHTML = `<span class="material-symbols-outlined text-[24px]">arrow_forward</span> შეერთება (Join Arena)`;
-          }, 700);
-        });
-      }
+      // Create / Join are handled by app.js (Socket.IO)
     })();
   </script>
 </div></main><footer class="w-full bg-surface-container-lowest/90 backdrop-blur-md relative z-20 shadow-[0_-4px_20px_rgba(0,0,0,0.4)]"><div class="max-w-[1280px] mx-auto px-margin md:px-margin-tablet lg:px-margin-desktop py-space-md flex flex-col md:flex-row items-center justify-between gap-space-md"><div class="flex flex-wrap items-center justify-center gap-space-sm md:gap-space-md font-label-sm text-label-sm text-on-surface-variant"><span class="text-primary font-bold flex items-center gap-1"><span class="material-symbols-outlined text-[14px]">keyboard</span>ცხელი ღილაკები:</span><span class="bg-surface-container px-2 py-0.5 rounded text-on-surface font-mono">TAB</span><span class="text-on-surface-variant">შემდეგი გრაფა</span><span class="text-surface-variant">•</span><span class="bg-surface-container px-2 py-0.5 rounded text-on-surface font-mono">ENTER</span><span class="text-on-surface-variant">დადასტურება</span><span class="text-surface-variant">•</span><span class="bg-surface-container px-2 py-0.5 rounded text-on-surface font-mono">ESC</span><span class="text-on-surface-variant">მენიუ</span></div><div class="flex items-center gap-space-lg text-on-surface-variant font-label-sm text-label-sm"><a class="text-on-surface-variant hover:text-secondary transition-colors flex items-center gap-1" data-path="rules" href="#"><span class="material-symbols-outlined text-[15px]">menu_book</span>სრული წესები</a><span class="text-surface-variant">|</span><span class="text-on-surface-variant opacity-80">© 2025 ქალაქობანა • Prime Arena</span></div></div></footer>
-<script type="application/json" id="boot">{% if room is defined and room %}{{ room | tojson }}{% else %}null{% endif %}</script>
 <script src="https://cdn.socket.io/4.7.5/socket.io.min.js" crossorigin="anonymous"></script>
-<script src="{{ url_for('static', filename='js/live.js') }}"></script>
+<script src="{{ url_for('static', filename='js/client.js') }}"></script>
+<script src="{{ url_for('static', filename='js/app.js') }}"></script>
 </body></html>
