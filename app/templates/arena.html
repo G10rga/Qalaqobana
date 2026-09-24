@@ -1,35 +1,72 @@
 {% extends "base_live.html" %}
 {% set page = "arena" %}
-{% block title %}არენა — ქალაქობანა{% endblock %}
+{% block title %}თამაში — ქალაქობანა{% endblock %}
 {% block content %}
-<div class="flex flex-col gap-6 animate-fadeUp">
-  <section class="relative overflow-hidden rounded-2xl bg-surface-container-low border border-surface-variant/40 p-6 sm:p-8 text-center shadow-xl">
-    <div class="absolute inset-0 bg-gradient-to-b from-primary/5 to-transparent pointer-events-none"></div>
-    <p id="arena-round" class="relative text-[10px] uppercase tracking-[0.2em] text-on-surface-variant font-bold mb-4">რაუნდი —</p>
-    <div class="relative inline-flex flex-col items-center justify-center w-32 h-32 rounded-full bg-surface-container-highest shadow-[0_0_40px_rgba(255,200,128,0.2)] border border-primary/20">
-      <span class="text-[10px] text-primary uppercase tracking-widest font-bold">ასო</span>
-      <span id="arena-letter" class="text-6xl font-extrabold text-primary leading-none">—</span>
-    </div>
-    <p id="game-timer" class="relative mt-5 font-mono text-4xl sm:text-5xl text-tertiary font-extrabold tracking-tight">—:—</p>
-  </section>
-
-  <div id="stop-announcement-banner" class="hidden rounded-xl bg-error/15 border border-error/40 p-4 text-center animate-fadeUp">
-    <h4 class="font-extrabold text-error text-lg">STOP!</h4>
+<div class="flex flex-col w-full">
+  <div id="stop-announcement-banner" class="hidden mb-4 p-4 rounded-xl bg-secondary text-on-secondary shadow-md">
+    <h4 class="font-headline-md text-headline-md font-bold">STOP!</h4>
+    <p id="grace-countdown" class="font-body-lg text-body-lg mt-1 opacity-90"></p>
   </div>
 
-  <div class="grid lg:grid-cols-3 gap-5 sm:gap-6">
-    <div id="answerForms" class="lg:col-span-2 flex flex-col gap-3"></div>
-    <aside class="space-y-4 lg:sticky lg:top-24 self-start">
-      <button type="button" id="btn-stop-buzzer"
-        class="w-full py-7 rounded-2xl bg-gradient-to-b from-[#ff4d5a] to-[#a81423] text-white font-extrabold text-2xl sm:text-3xl shadow-[0_12px_40px_rgba(168,20,35,0.45)] hover:brightness-110 active:scale-[0.98] transition">
-        სტოპ!
-      </button>
-      <p class="text-on-surface-variant text-sm text-center">ან <kbd class="px-1.5 py-0.5 rounded bg-surface-container font-mono text-xs">SPACE</kbd></p>
-      <div class="bg-surface-container-low rounded-xl p-4 border border-surface-variant/30 space-y-2">
-        <p class="text-[10px] uppercase tracking-wider text-on-surface-variant font-bold">ქულები</p>
-        <div id="arena-scores" class="flex flex-col gap-1.5"></div>
+  <div class="relative w-full mb-space-lg flex flex-col md:flex-row md:items-end justify-between gap-space-md">
+    <div class="flex items-center gap-space-md">
+      <div class="relative inline-flex items-center justify-center p-space-md bg-surface-container-low shadow-sm rounded-xl rotate-[-2deg] select-none">
+        <div class="flex flex-col items-center">
+          <span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">მიმდინარე ასო</span>
+          <span id="arena-letter" class="font-headline-xl text-headline-xl text-primary font-black tracking-tight">—</span>
+        </div>
       </div>
-    </aside>
+      <div class="flex flex-col rotate-[1deg]">
+        <div class="inline-flex items-center gap-space-xs bg-surface-container-high px-space-sm py-1 rounded shadow-sm">
+          <span class="font-label-sm text-label-sm text-outline uppercase font-semibold">ტური:</span>
+          <span id="arena-round" class="font-headline-md text-headline-md text-primary tracking-tight">—</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="w-full bg-surface-container-low px-space-md py-2 rounded-xl shadow-sm mb-space-lg">
+    <div class="flex items-center gap-space-xs text-primary mb-1">
+      <span class="material-symbols-outlined text-[18px]">edit_note</span>
+      <span class="font-label-md text-label-md uppercase tracking-wider font-semibold">მოთამაშეები:</span>
+    </div>
+    <div id="arena-scores" class="flex flex-wrap items-center gap-space-md font-body-lg text-body-lg text-on-surface-variant"></div>
+  </div>
+
+  <div class="relative w-full rounded-xl bg-surface-container-lowest shadow-md p-space-sm sm:p-space-md mb-space-lg">
+    <div id="answerForms" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3"></div>
+  </div>
+
+  <div class="w-full mt-space-lg grid grid-cols-1 lg:grid-cols-12 gap-space-md items-center">
+    <div class="lg:col-span-4 relative self-start">
+      <div class="relative bg-surface-container-high p-space-md rounded shadow-md rotate-[-2deg]">
+        <div class="absolute -top-3 left-1/2 -translate-x-1/2 w-16 h-5 bg-surface-tint/25 rounded-xs"></div>
+        <div class="flex items-start gap-space-xs">
+          <span class="material-symbols-outlined text-secondary text-[24px]">push_pin</span>
+          <div>
+            <span class="font-headline-md text-headline-md text-primary leading-tight">ვინც პირველი დაასრულებს, აჭერს STOP-ს!</span>
+            <p class="font-body-lg text-body-lg text-on-surface-variant mt-1">შემდეგ ყველას ეძლევა ~8 წამი პასუხების დასასრულებლად.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="lg:col-span-5 flex flex-col items-center justify-center text-center">
+      <button type="button" id="btn-stop-buzzer"
+        class="group relative inline-flex flex-col items-center justify-center px-space-xl py-space-md rounded-2xl bg-surface-container-lowest text-secondary shadow-xl hover:shadow-2xl transition-all duration-150 transform hover:scale-105 active:scale-95 cursor-pointer rotate-[-2deg]">
+        <div class="relative z-10 flex items-center gap-space-sm">
+          <span class="material-symbols-outlined text-[36px] font-black group-hover:animate-bounce">pan_tool</span>
+          <div class="flex flex-col items-start text-left">
+            <span class="font-headline-xl text-headline-xl leading-none font-black tracking-wider uppercase text-secondary">გაჩერდი!</span>
+            <span class="font-label-lg text-label-lg tracking-widest uppercase font-bold text-on-secondary-fixed-variant">STOP THE ROUND!</span>
+          </div>
+        </div>
+      </button>
+      <div class="mt-space-sm flex items-center gap-1 font-body-lg text-body-lg text-secondary font-semibold">
+        <span class="material-symbols-outlined text-[18px]">verified</span>
+        <span>დააჭირე როცა მზად ხარ (ან SPACE)</span>
+      </div>
+    </div>
+    <div class="lg:col-span-3"></div>
   </div>
 </div>
 {% endblock %}

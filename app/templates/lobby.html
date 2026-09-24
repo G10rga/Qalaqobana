@@ -1,67 +1,65 @@
 {% extends "base_live.html" %}
 {% set page = "lobby" %}
-{% block title %}ლობი — ქალაქობანა{% endblock %}
+{% block title %}ოთახი — ქალაქობანა{% endblock %}
 {% block content %}
-<div class="flex flex-col gap-6 sm:gap-8 animate-fadeUp">
-  <section class="relative overflow-hidden rounded-2xl bg-surface-container border border-surface-variant/40 shadow-xl">
-    <div class="absolute -right-16 -top-16 w-72 h-72 rounded-full bg-secondary/10 blur-[90px] pointer-events-none"></div>
-    <div class="absolute -left-12 -bottom-12 w-56 h-56 rounded-full bg-primary/10 blur-[80px] pointer-events-none"></div>
-    <div class="relative p-5 sm:p-7 flex flex-col lg:flex-row lg:items-end justify-between gap-5">
-      <div>
-        <p class="text-[10px] uppercase tracking-[0.2em] text-secondary font-bold mb-2 flex items-center gap-2">
-          <span class="relative flex h-2 w-2">
-            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-secondary opacity-60"></span>
-            <span class="relative inline-flex rounded-full h-2 w-2 bg-secondary"></span>
-          </span>
-          ლობი
-        </p>
-        <p class="text-sm text-on-surface-variant mb-1">ოთახის კოდი</p>
-        <p id="roomCodeDisplay" class="text-4xl sm:text-5xl font-extrabold text-primary font-mono tracking-wider">—</p>
-        <p id="lobby-settings" class="text-sm text-on-surface-variant mt-2"></p>
+<div class="flex flex-col w-full relative">
+  <div class="w-full flex flex-col items-center justify-center pt-2 pb-6 relative">
+    <div class="relative inline-flex flex-col items-center">
+      <div class="relative bg-surface-container-low px-6 py-2 rounded-xl shadow-md flex items-center gap-4">
+        <div class="flex items-center gap-2">
+          <span class="material-symbols-outlined text-secondary text-[22px]">tag</span>
+          <div class="flex flex-col leading-none">
+            <span class="font-label-sm text-label-sm uppercase tracking-wider text-outline">ოთახის კოდი</span>
+            <span class="font-headline-lg text-headline-lg text-primary tracking-wider font-extrabold select-all" id="roomCodeDisplay">—</span>
+          </div>
+        </div>
+        <button type="button" id="copyBtn" class="flex items-center gap-1.5 bg-surface-container-high hover:bg-surface-variant text-on-surface px-3 py-1.5 rounded-lg shadow-sm active:scale-95 transition-all" title="დააკოპირე კოდი">
+          <span class="material-symbols-outlined text-[20px] text-primary rotate-45">attach_file</span>
+          <span class="font-label-md text-label-md font-bold uppercase tracking-tight">კოპირება</span>
+        </button>
+        <button type="button" id="shareBtn" class="flex items-center gap-1.5 bg-surface-container-high hover:bg-surface-variant text-on-surface px-3 py-1.5 rounded-lg shadow-sm active:scale-95 transition-all" title="გაზიარება">
+          <span class="material-symbols-outlined text-[20px] text-primary">share</span>
+          <span class="font-label-md text-label-md font-bold uppercase tracking-tight hidden sm:inline">გაზიარება</span>
+        </button>
       </div>
-      <div class="flex flex-wrap gap-2">
-        <button type="button" id="copyBtn"
-          class="px-4 py-2.5 rounded-xl bg-surface-container-high hover:bg-surface-bright text-secondary text-sm font-bold flex items-center gap-1.5 transition active:scale-95 shadow-md">
-          <span class="material-symbols-outlined text-[18px]">content_copy</span>
-          კოპირება
-        </button>
-        <button type="button" id="shareBtn"
-          class="px-4 py-2.5 rounded-xl bg-surface-container-high hover:bg-surface-bright text-on-surface text-sm font-bold flex items-center gap-1.5 transition active:scale-95 shadow-md">
-          <span class="material-symbols-outlined text-[18px]">share</span>
-          გაზიარება
-        </button>
+      <span id="lobby-settings" class="font-label-sm text-label-sm text-outline mt-2"></span>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start relative z-10 my-2">
+    <div class="lg:col-span-5 flex flex-col gap-4 bg-surface-container-low/70 rounded-xl p-5 shadow-sm relative">
+      <div class="flex items-center justify-between">
+        <div class="flex items-baseline gap-2">
+          <h2 class="font-headline-lg text-headline-lg text-primary tracking-tight">მოთამაშეები</h2>
+          <span id="playerCountBadge" class="font-label-md text-label-md text-secondary font-bold px-2 py-0.5 rounded-full bg-error-container text-on-error-container">0 / 8</span>
+        </div>
+      </div>
+      <div id="playerList" class="flex flex-col gap-3"></div>
+    </div>
+
+    <div class="lg:col-span-7 flex flex-col gap-5">
+      <div class="bg-surface-container-low rounded-xl p-5 shadow-sm relative">
+        <div class="flex flex-wrap items-center justify-between gap-2 pb-3 mb-3">
+          <div class="flex items-center gap-2">
+            <h2 class="font-headline-lg text-headline-lg text-primary tracking-tight">კატეგორიები</h2>
+            <span id="categoryCountBadge" class="font-label-sm text-label-sm bg-primary-container text-on-primary-container px-2 py-0.5 rounded-full font-bold">0 არჩეულია</span>
+          </div>
+        </div>
+        <div id="categoryGrid" class="grid grid-cols-1 sm:grid-cols-2 gap-2.5"></div>
       </div>
     </div>
-  </section>
+  </div>
 
-  <div class="grid lg:grid-cols-5 gap-5 sm:gap-6">
-    <section class="lg:col-span-3 space-y-3">
-      <div class="flex items-center justify-between px-1">
-        <h2 class="font-bold text-lg flex items-center gap-2">
-          <span class="material-symbols-outlined text-secondary">groups</span>
-          მოთამაშეები
-        </h2>
-        <span id="playerCountBadge" class="text-xs font-bold text-secondary bg-secondary/10 px-2.5 py-1 rounded-full">0 / 8</span>
-      </div>
-      <div id="playerList" class="flex flex-col gap-2 min-h-[88px]"></div>
-      <button type="button" id="startGameBtn"
-        class="w-full py-4 rounded-xl bg-gradient-to-r from-primary-container to-primary text-on-primary-container font-extrabold text-lg mt-1 flex items-center justify-center gap-2 shadow-[0_8px_28px_rgba(245,166,35,0.3)] hover:scale-[1.01] active:scale-[0.99] transition">
-        <span class="material-symbols-outlined">sports_esports</span>
-        თამაშის დაწყება
-      </button>
-    </section>
-
-    <section class="lg:col-span-2 space-y-3">
-      <div class="flex items-center justify-between px-1">
-        <h2 class="font-bold text-lg flex items-center gap-2">
-          <span class="material-symbols-outlined text-primary">checklist</span>
-          კატეგორიები
-        </h2>
-        <span id="categoryCountBadge" class="text-xs font-bold text-primary bg-primary/10 px-2.5 py-1 rounded-full">0 არჩეულია</span>
-      </div>
-      <div id="categoryGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-2"></div>
-      <p class="text-xs text-on-surface-variant px-1">* სავალდებულო. მასპინძელს შეუძლია დაამატოს მდინარე, ფილმი და საჭმელი.</p>
-    </section>
+  <div class="w-full mt-6 pt-4 flex flex-col sm:flex-row items-center justify-between gap-4 relative">
+    <div class="flex items-center gap-2 text-on-surface-variant rotate-[-1deg]">
+      <span class="material-symbols-outlined text-secondary text-[22px]">draw</span>
+      <span class="font-body-xl text-body-xl text-primary font-semibold">მასპინძელი იწყებს თამაშს!</span>
+    </div>
+    <button type="button" id="startGameBtn"
+      class="relative overflow-hidden bg-secondary hover:bg-secondary-container text-on-secondary px-8 py-3.5 rounded-xl shadow-lg hover:shadow-xl active:translate-y-0.5 transition-all flex items-center gap-3">
+      <span id="startGameBtnLabel" class="font-headline-md text-headline-md tracking-wide font-extrabold">თამაშის დაწყება</span>
+      <span class="material-symbols-outlined text-[24px]">arrow_forward</span>
+    </button>
   </div>
 </div>
 {% endblock %}

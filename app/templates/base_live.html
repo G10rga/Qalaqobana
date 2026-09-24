@@ -1,76 +1,160 @@
 <!DOCTYPE html>
-<html class="dark" lang="ka">
+<html lang="ka">
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>{% block title %}ქალაქობანა{% endblock %}</title>
   <link href="https://fonts.googleapis.com" rel="preconnect"/>
   <link crossorigin href="https://fonts.gstatic.com" rel="preconnect"/>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
-  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;500;600;700&family=Epilogue:ital,wght@0,600;0,700;0,800;1,700&family=JetBrains+Mono:wght@400;500;600&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&display=swap" rel="stylesheet"/>
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
-    tailwind.config = {darkMode:"class", theme:{extend:{
-      colors:{
-        background:"#061423", "on-surface":"#d6e4f9", "on-surface-variant":"#d7c3ae",
-        primary:"#ffc880", "primary-container":"#f5a623", "on-primary-container":"#644000", "on-primary":"#452b00",
-        secondary:"#48f1e5", "secondary-container":"#03d4c8", "on-secondary":"#003733", "on-secondary-container":"#005751",
-        "surface-container":"#132030", "surface-container-low":"#0f1c2c", "surface-container-high":"#1e2b3b",
-        "surface-container-highest":"#283646", "surface-container-lowest":"#020f1e", "surface-variant":"#283646",
-        "surface-bright":"#2d3a4a",
-        error:"#ffb4ab", tertiary:"#ffc3c1", outline:"#9f8e7a"
-      },
-      fontFamily:{sans:["Plus Jakarta Sans","sans-serif"]},
-      keyframes:{
-        float:{'0%,100%':{transform:'translateY(0)'},'50%':{transform:'translateY(-8px)'}},
-        fadeUp:{'0%':{opacity:'0',transform:'translateY(12px)'},'100%':{opacity:'1',transform:'translateY(0)'}},
-        pulseSoft:{'0%,100%':{opacity:'.45'},'50%':{opacity:'.9'}}
-      },
-      animation:{
-        float:'float 6s ease-in-out infinite',
-        fadeUp:'fadeUp .55s ease-out both',
-        pulseSoft:'pulseSoft 2.8s ease-in-out infinite'
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            "outline-variant": "#c7c5cd",
+            "error-container": "#ffdad6",
+            "primary-container": "#1e2238",
+            "inverse-on-surface": "#f4f0e7",
+            "surface-variant": "#e6e2d9",
+            "surface": "#fdf9f0",
+            "primary-fixed": "#dee1ff",
+            "on-secondary-container": "#650001",
+            "surface-container-lowest": "#ffffff",
+            "on-background": "#1c1c17",
+            "inverse-surface": "#31312b",
+            "outline": "#77767e",
+            "on-secondary-fixed-variant": "#8e130c",
+            "on-error-container": "#93000a",
+            "secondary-fixed-dim": "#ffb4a9",
+            "inverse-primary": "#c2c5e2",
+            "surface-container-high": "#ece8df",
+            "surface-bright": "#fdf9f0",
+            "error": "#ba1a1a",
+            "tertiary-container": "#002b05",
+            "on-primary-container": "#8689a4",
+            "surface-dim": "#dddad1",
+            "primary-fixed-dim": "#c2c5e2",
+            "on-surface-variant": "#46464d",
+            "on-primary": "#ffffff",
+            "on-tertiary-container": "#4d9c4c",
+            "on-primary-fixed-variant": "#42455d",
+            "tertiary-fixed-dim": "#88d982",
+            "background": "#fdf9f0",
+            "surface-container-highest": "#e6e2d9",
+            "on-secondary": "#ffffff",
+            "secondary-fixed": "#ffdad5",
+            "on-primary-fixed": "#161a30",
+            "secondary": "#b02d21",
+            "on-surface": "#1c1c17",
+            "on-error": "#ffffff",
+            "primary": "#080c21",
+            "on-secondary-fixed": "#410000",
+            "on-tertiary-fixed-variant": "#005312",
+            "tertiary-fixed": "#a3f69c",
+            "surface-container-low": "#f7f3ea",
+            "surface-container": "#f1eee5",
+            "secondary-container": "#fc6451",
+            "on-tertiary": "#ffffff",
+            "on-tertiary-fixed": "#002204",
+            "surface-tint": "#595d76",
+            "tertiary": "#001201"
+          },
+          borderRadius: { DEFAULT: "0.125rem", lg: "0.25rem", xl: "0.5rem", full: "0.75rem" },
+          spacing: {
+            margin: "2rem", "space-xs": "0.25rem", "space-xl": "2.5rem", gutter: "1.5rem",
+            "space-lg": "1.75rem", "space-sm": "0.5rem", "margin-mobile": "1rem",
+            "space-md": "1rem", "gutter-mobile": "0.75rem"
+          },
+          fontFamily: {
+            "headline-md": ["Epilogue"], "body-md": ["Caveat"], "body-lg": ["Caveat"],
+            "headline-xl": ["Epilogue"], "headline-lg-mobile": ["Epilogue"], "body-xl": ["Caveat"],
+            "headline-lg": ["Epilogue"], "label-md": ["JetBrains Mono"],
+            "headline-xl-mobile": ["Epilogue"], "label-sm": ["JetBrains Mono"], "label-lg": ["JetBrains Mono"]
+          },
+          fontSize: {
+            "headline-md": ["22px", { lineHeight: "28px", fontWeight: "700" }],
+            "body-md": ["20px", { lineHeight: "24px", fontWeight: "400" }],
+            "body-lg": ["24px", { lineHeight: "28px", fontWeight: "500" }],
+            "headline-xl": ["44px", { lineHeight: "52px", fontWeight: "800" }],
+            "headline-lg-mobile": ["26px", { lineHeight: "34px", fontWeight: "700" }],
+            "body-xl": ["28px", { lineHeight: "32px", fontWeight: "600" }],
+            "headline-lg": ["32px", { lineHeight: "40px", fontWeight: "700" }],
+            "label-md": ["12px", { lineHeight: "16px", fontWeight: "500" }],
+            "headline-xl-mobile": ["32px", { lineHeight: "40px", fontWeight: "800" }],
+            "label-sm": ["10px", { lineHeight: "14px", fontWeight: "500" }],
+            "label-lg": ["14px", { lineHeight: "18px", fontWeight: "600" }]
+          }
+        }
       }
-    }}}
+    };
   </script>
   <style>
-    body{font-family:"Plus Jakarta Sans",sans-serif}
-    ::-webkit-scrollbar{display:none}
-    .material-symbols-outlined{font-variation-settings:'FILL' 0,'wght' 500,'GRAD' 0,'opsz' 24}
-    .letter-wash{user-select:none;pointer-events:none}
+    html, body { margin: 0; padding: 0; }
+    body { overscroll-behavior: none; }
+    ::-webkit-scrollbar { display: none; }
+    .lined-paper {
+      background-color: #fdf9f0;
+      background-image: linear-gradient(#c2c5e2 1px, transparent 1px);
+      background-size: 100% 32px;
+    }
+    .desk-bg {
+      background-color: #4a3525;
+      background-image:
+        radial-gradient(ellipse at 50% 30%, rgba(105,73,50,0.6) 0%, rgba(35,22,14,0.95) 100%),
+        repeating-linear-gradient(90deg, rgba(0,0,0,0.03) 0px, rgba(0,0,0,0.03) 2px, transparent 2px, transparent 40px);
+    }
+    .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
   </style>
   {% block head %}{% endblock %}
 </head>
-<body class="bg-background text-on-surface antialiased min-h-screen relative overflow-x-hidden selection:bg-secondary selection:text-on-secondary" data-page="{{ page|default('') }}">
-  <div class="pointer-events-none fixed inset-0 z-0 overflow-hidden" aria-hidden="true">
-    <div class="absolute -top-40 left-1/2 -translate-x-1/2 w-[720px] h-[380px] bg-secondary/10 rounded-full blur-[140px]"></div>
-    <div class="absolute top-1/3 -right-28 w-[420px] h-[420px] bg-primary/10 rounded-full blur-[150px]"></div>
-    <div class="absolute -bottom-28 -left-20 w-[480px] h-[480px] bg-secondary-container/10 rounded-full blur-[140px]"></div>
-  </div>
-
-  <header class="sticky top-0 z-50 bg-surface-container-lowest/80 backdrop-blur-xl border-b border-surface-variant/30 shadow-[0_4px_24px_rgba(0,0,0,0.35)]">
-    <div class="max-w-5xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-3">
-      <a href="/" class="flex items-center gap-2.5 group">
-        <span class="w-9 h-9 rounded-xl bg-gradient-to-br from-primary-container to-primary text-on-primary-container flex items-center justify-center font-extrabold text-lg shadow-[0_0_20px_rgba(245,166,35,0.35)] group-hover:scale-105 transition">ქ</span>
-        <div class="leading-none">
-          <div class="font-extrabold text-primary tracking-wide text-base">ქალაქობანა</div>
-          <div class="text-[10px] uppercase tracking-[0.18em] text-secondary/80 font-bold">Live</div>
+<body class="desk-bg min-h-screen text-on-surface font-body-md text-body-md relative overflow-x-hidden selection:bg-secondary-fixed selection:text-on-secondary-fixed" data-page="{{ page|default('') }}">
+  <header class="fixed top-0 left-0 right-0 z-50 bg-surface/90 backdrop-blur-md shadow-[0_4px_16px_rgba(0,0,0,0.18)]">
+    <div class="h-20 max-w-7xl mx-auto px-space-md lg:px-margin flex items-center justify-between gap-space-md">
+      <div class="flex items-center gap-space-md min-w-0">
+        <a href="/" class="relative rotate-[-2deg] shrink-0">
+          <span class="block font-headline-lg text-headline-lg text-primary tracking-tight">ქალაქობანა</span>
+          <span class="block font-label-sm text-label-sm tracking-widest text-outline -mt-1 uppercase">Qalaqobana Notebook</span>
+        </a>
+        <div id="header-room-code" class="hidden md:flex items-center gap-space-xs px-space-sm py-1 bg-surface-container-high rounded border-2 border-dashed border-outline-variant rotate-[1deg] font-label-md text-label-md text-secondary font-bold tracking-widest"></div>
+        <span id="header-score" class="hidden font-label-md text-label-md text-on-surface-variant"></span>
+      </div>
+      <nav class="hidden sm:flex items-center gap-1 overflow-x-auto py-1" aria-label="ნავიგაცია">
+        <a class="px-space-sm py-1 font-headline-md text-headline-md {% if page == 'home' %}bg-primary-container text-on-primary-container font-bold rounded-lg shadow-sm{% else %}text-on-surface-variant{% endif %}" href="/">მთავარი</a>
+        <a class="px-space-sm py-1 font-headline-md text-headline-md {% if page == 'lobby' %}bg-primary-container text-on-primary-container font-bold rounded-lg shadow-sm{% else %}text-on-surface-variant{% endif %}" href="/lobby">ოთახი</a>
+        <a class="px-space-sm py-1 font-headline-md text-headline-md {% if page == 'arena' or page == 'spin' %}bg-primary-container text-on-primary-container font-bold rounded-lg shadow-sm{% else %}text-on-surface-variant{% endif %}" href="/arena">თამაში</a>
+        <a class="px-space-sm py-1 font-headline-md text-headline-md {% if page == 'results' %}bg-primary-container text-on-primary-container font-bold rounded-lg shadow-sm{% else %}text-on-surface-variant{% endif %}" href="/results">შემოწმება</a>
+        <a class="px-space-sm py-1 font-headline-md text-headline-md {% if page == 'podium' %}bg-primary-container text-on-primary-container font-bold rounded-lg shadow-sm{% else %}text-on-surface-variant{% endif %}" href="/podium">შედეგები</a>
+      </nav>
+      <div class="flex items-center gap-space-sm shrink-0">
+        <button type="button" id="leave-btn" class="hidden px-space-sm py-1 rounded bg-surface-container-high font-label-md text-label-md text-on-surface-variant hover:text-on-surface transition-colors">გასვლა</button>
+        <div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center">
+          <span class="material-symbols-outlined text-on-primary text-[18px]">person</span>
         </div>
-      </a>
-      <div class="flex items-center gap-3 text-sm">
-        <span id="header-room-code" class="hidden font-mono tracking-widest text-secondary bg-surface-container px-3 py-1 rounded-lg text-xs font-bold"></span>
-        <span id="header-score" class="hidden text-on-surface-variant text-xs font-semibold"></span>
-        <button type="button" id="leave-btn" class="hidden text-on-surface-variant hover:text-on-surface text-sm font-semibold px-2 py-1 rounded-lg hover:bg-surface-container transition">გასვლა</button>
       </div>
     </div>
   </header>
 
-  <main class="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 py-8 sm:py-10">
-    {% block content %}{% endblock %}
+  <main class="w-full pt-20 px-space-sm sm:px-space-md lg:px-margin">
+    <div class="max-w-7xl mx-auto my-space-md relative">
+      <div class="relative bg-surface rounded-xl shadow-[3px_5px_0px_rgba(30,34,56,0.18),12px_22px_35px_rgba(0,0,0,0.35)] lined-paper p-space-md sm:p-space-lg lg:p-space-xl overflow-hidden min-h-[calc(100vh-14rem)]">
+        <div class="absolute left-10 sm:left-14 top-0 bottom-0 w-[2px] bg-secondary pointer-events-none opacity-85 z-10"></div>
+        <div class="absolute -top-10 -right-10 w-36 h-36 rounded-full border-[8px] border-[#916b47]/20 pointer-events-none rotate-12"></div>
+        <div class="relative z-20 pl-6 sm:pl-10">
+          {% block content %}{% endblock %}
+        </div>
+      </div>
+    </div>
   </main>
 
+  <footer class="w-full py-space-md text-center">
+    <div class="max-w-7xl mx-auto px-space-md text-surface-container-high font-label-sm text-label-sm opacity-80">© ქალაქობანა • სასკოლო რვეული</div>
+  </footer>
+
   <script src="https://cdn.socket.io/4.7.5/socket.io.min.js" crossorigin="anonymous"></script>
-  <script src="{{ url_for('static', filename='js/client.js') }}?v=3"></script>
-  <script src="{{ url_for('static', filename='js/app.js') }}?v=3"></script>
+  <script src="{{ url_for('static', filename='js/client.js') }}?v=5"></script>
+  <script src="{{ url_for('static', filename='js/app.js') }}?v=5"></script>
 </body>
 </html>

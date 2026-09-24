@@ -157,6 +157,8 @@
     if (codeEl) {
       codeEl.textContent = "#" + room.code;
       codeEl.classList.remove("hidden");
+      // keep md:flex visible on desktop after unhiding
+      if (!codeEl.classList.contains("md:flex")) codeEl.classList.add("md:flex");
     }
     const me = (room.players || []).find((p) => p.id === room.you);
     if (scoreEl) {
@@ -195,30 +197,20 @@
     ];
 
     let maxRounds = 5;
-    let roundSeconds = 60;
     let soloPending = false;
 
-    const IDLE = "px-2.5 py-1 rounded text-xs font-bold text-on-surface-variant";
-    const ACTIVE_S = "px-2.5 py-1 rounded text-xs font-bold bg-primary text-on-primary";
-    const ACTIVE_R = "px-2.5 py-1 rounded text-xs font-bold bg-secondary text-on-secondary";
+    const IDLE = "p-2 rounded-md bg-surface-container shadow-sm font-headline-md text-headline-md text-primary transition-all";
+    const ACTIVE_R = "p-2 rounded-md bg-primary-container text-on-primary-container shadow-sm font-headline-md text-headline-md transition-all";
 
     function paint(root, attr, value, active) {
       if (!root) return;
       root.querySelectorAll("button[" + attr + "]").forEach((btn) => {
-        btn.className = String(btn.getAttribute(attr)) === String(value) ? active : IDLE;
+        const on = String(btn.getAttribute(attr)) === String(value);
+        btn.className = on ? active : IDLE;
       });
     }
 
-    const secondsPicker = document.getElementById("home-seconds-picker");
     const roundsPicker = document.getElementById("home-rounds-picker");
-    if (secondsPicker) {
-      secondsPicker.addEventListener("click", (e) => {
-        const btn = e.target.closest("button[data-seconds]");
-        if (!btn) return;
-        roundSeconds = parseInt(btn.getAttribute("data-seconds"), 10);
-        paint(secondsPicker, "data-seconds", roundSeconds, ACTIVE_S);
-      });
-    }
     if (roundsPicker) {
       roundsPicker.addEventListener("click", (e) => {
         const btn = e.target.closest("button[data-rounds]");
@@ -227,6 +219,7 @@
         paint(roundsPicker, "data-rounds", maxRounds, ACTIVE_R);
       });
     }
+
 
     if (randomBtn && nick) {
       randomBtn.onclick = () => {
@@ -266,7 +259,6 @@
       client.createRoom(name, {
         categories: REQUIRED_CATS.slice(),
         maxRounds: maxRounds,
-        roundSeconds: roundSeconds,
       });
     }
 
@@ -404,7 +396,7 @@
         }
         const cats = collectCheckedCats();
         const badge = document.getElementById("categoryCountBadge");
-        if (badge) badge.textContent = cats.length + " არჩეულია";
+        if (badge) badge.textContent = cats.length + " / " + Object.keys(CAT).length + " აქტიური";
         if (latestRoom) latestRoom.categories = cats.slice();
         client.setSettings({ categories: cats });
       });
@@ -414,26 +406,31 @@
       updateChrome(room);
       if (codeEl) codeEl.textContent = room.code;
       if (settingsEl) {
-        settingsEl.textContent = room.max_rounds + " რაუნდი · " + room.round_seconds + " წმ / რაუნდი";
+        settingsEl.textContent = room.max_rounds + " რაუნდი · STOP = ვინც პირველი დაასრულებს";
       }
       const players = room.players || [];
       if (countBadge) countBadge.textContent = players.length + " / 8";
       if (listEl) {
         listEl.innerHTML = players
-          .map((p) => {
+          .map((p, idx) => {
             const host = p.id === room.host_id;
             const you = p.id === room.you;
-            return `<div class="flex items-center justify-between p-3.5 rounded-xl ${you ? "bg-surface-container-high border border-secondary/20" : "bg-surface-container border border-surface-variant/20"} shadow-md">
+            const label = you ? "შენ (" + escapeHtml(p.name) + ")" : escapeHtml(p.name);
+            return `<div class="flex items-center justify-between p-2.5 rounded-lg ${you ? "bg-surface-container shadow-sm" : "bg-surface shadow-sm"} hover:translate-x-1 transition-transform">
               <div class="flex items-center gap-3 min-w-0">
-                <div class="w-11 h-11 rounded-xl ${host ? "bg-gradient-to-tr from-amber-600 to-primary text-on-primary shadow-[0_0_16px_rgba(245,166,35,0.35)]" : "bg-surface-container-highest text-secondary"} flex items-center justify-center font-bold shrink-0">${initial(p.name)}</div>
-                <div class="min-w-0">
+                <span class="w-6 font-label-md text-label-md text-outline">${idx + 1}.</span>
+                <div class="w-8 h-8 rounded-full ${host ? "bg-primary text-on-primary" : "bg-secondary-fixed text-on-secondary-fixed"} flex items-center justify-center font-bold shrink-0">${escapeHtml(initial(p.name))}</div>
+                <div class="flex flex-col min-w-0">
                   <div class="flex items-center gap-1.5 flex-wrap">
-                    <span class="font-bold truncate">${escapeHtml(p.name)}</span>
-                    ${host ? '<span class="text-[10px] px-1.5 py-0.5 rounded bg-primary/20 text-primary font-bold">მასპინძელი</span>' : ""}
-                    ${you ? '<span class="text-[10px] px-1.5 py-0.5 rounded bg-secondary/20 text-secondary font-bold">შენ</span>' : ""}
+                    <span class="font-body-xl text-body-xl text-primary font-bold leading-none truncate">${label}</span>
+                    ${host ? '<span class="font-label-sm text-label-sm bg-primary-fixed text-on-primary-fixed px-1.5 rounded font-bold uppercase">HOST</span>' : ""}
                   </div>
-                  <span class="text-xs text-on-surface-variant">${p.total_score} ქ</span>
+                  <span class="font-label-sm text-label-sm text-outline">${p.total_score} ქულა · ${p.connected ? "ონლაინ" : "გათიშულია"}</span>
                 </div>
+              </div>
+              <div class="flex items-center gap-1 ${p.connected ? "bg-tertiary-fixed text-on-tertiary-fixed" : "bg-surface-container-highest text-on-surface-variant"} px-2.5 py-1 rounded-full shadow-sm shrink-0">
+                <span class="material-symbols-outlined text-[16px]">${p.connected ? "check_circle" : "hourglass_top"}</span>
+                <span class="font-body-md text-body-md font-bold leading-none">${p.connected ? "მზადაა!" : "…"}</span>
               </div>
             </div>`;
           })
@@ -442,26 +439,35 @@
 
       if (gridRoot) {
         const host = isHostOf(room);
+        const icons = { country: "public", city: "location_city", animal: "pets", plant: "forest", name: "badge", river: "water", film: "movie", food: "restaurant" };
         gridRoot.innerHTML = Object.keys(CAT)
           .map((key) => {
-            const checked = (room.categories || []).indexOf(key) >= 0 ? "checked" : "";
+            const on = (room.categories || []).indexOf(key) >= 0;
+            const checked = on ? "checked" : "";
             const req = REQUIRED_CATS.indexOf(key) >= 0;
-            return `<label class="flex items-center justify-between gap-2 p-3 rounded-xl bg-surface-container border border-surface-variant/25 cursor-pointer hover:bg-surface-container-high transition ${host ? "" : "opacity-70"}">
-              <span class="flex items-center gap-2 text-sm font-semibold">
-                <span class="text-lg">${CAT[key].emoji}</span><span>${CAT[key].ka}</span>${req ? '<span class="text-on-surface-variant text-xs">*</span>' : ""}
+            return `<label class="group flex items-center justify-between p-2.5 rounded-lg bg-surface shadow-sm cursor-pointer hover:bg-surface-container transition-all ${on ? "" : "opacity-70"} ${host ? "" : "pointer-events-none"}">
+              <span class="font-body-xl text-body-xl ${on ? "text-primary" : "text-on-surface-variant"} font-medium flex items-center gap-2">
+                <span class="material-symbols-outlined text-[20px]">${icons[key] || "category"}</span>
+                ${CAT[key].ka}${req ? " *" : ""}
               </span>
-              <input data-cat="${key}" type="checkbox" ${checked} class="w-4 h-4 accent-secondary"/>
+              <input data-cat="${key}" type="checkbox" ${checked} class="sr-only"/>
+              <div class="w-6 h-6 rounded ${on ? "bg-surface-container-high text-primary" : "bg-surface-container text-transparent"} flex items-center justify-center">
+                <span class="material-symbols-outlined text-[18px] font-black">check</span>
+              </div>
             </label>`;
           })
           .join("");
         const badge = document.getElementById("categoryCountBadge");
-        if (badge) badge.textContent = (room.categories || []).length + " არჩეულია";
+        if (badge) badge.textContent = (room.categories || []).length + " / " + Object.keys(CAT).length + " აქტიური";
       }
 
       if (startBtn) {
         startBtn.style.display = isHostOf(room) ? "" : "none";
         startBtn.disabled = false;
-        startBtn.textContent = "თამაშის დაწყება (" + players.length + "/8)";
+        const label = document.getElementById("startGameBtnLabel");
+        const txt = "თამაშის დაწყება (" + players.length + "/8)";
+        if (label) label.textContent = txt;
+        else startBtn.textContent = txt;
       }
     }
 
@@ -704,12 +710,13 @@
 
     const forms = document.getElementById("answerForms");
     const stopBtn = document.getElementById("btn-stop-buzzer");
-    const timerEl = document.getElementById("game-timer");
     const banner = document.getElementById("stop-announcement-banner");
+    const graceEl = document.getElementById("grace-countdown");
     const letterEl = document.getElementById("arena-letter");
     const roundEl = document.getElementById("arena-round");
     const scoresEl = document.getElementById("arena-scores");
     let formsBuiltFor = null;
+    let graceTimer = null;
 
     function gatherAnswers() {
       const out = {};
@@ -728,30 +735,38 @@
       }, 250);
     }
 
-    function startCountdown(seconds) {
-      clearInterval(countdownTimer);
-      let left = seconds;
-      const tick = () => {
-        if (timerEl) {
-          timerEl.textContent =
-            String(Math.floor(left / 60)).padStart(2, "0") + ":" + String(left % 60).padStart(2, "0");
+    function showGraceBanner(name, seconds, isYou) {
+      if (banner) {
+        banner.classList.remove("hidden");
+        const h4 = banner.querySelector("h4");
+        if (h4) {
+          h4.textContent = isYou
+            ? "შენ დააჭირე STOP-ს!"
+            : (name || "მოთამაშე") + " დაასრულა! ყველას აქვს ცოტა დრო…";
         }
+      }
+      clearInterval(graceTimer);
+      let left = Math.max(1, Math.ceil(seconds));
+      const tick = () => {
+        if (graceEl) graceEl.textContent = "დარჩენილი დრო: " + left + " წმ";
         if (left <= 0) {
-          clearInterval(countdownTimer);
-          if (!stoppedLocally && latestRoom && latestRoom.state === "playing") {
-            stoppedLocally = true;
-            client.stopRound();
-          }
+          clearInterval(graceTimer);
+          if (graceEl) graceEl.textContent = "რაუნდი იკეტება…";
           return;
         }
         left -= 1;
       };
       tick();
-      countdownTimer = setInterval(tick, 1000);
+      graceTimer = setInterval(tick, 1000);
+      if (stopBtn) {
+        stopBtn.disabled = true;
+        stopBtn.classList.add("opacity-50", "pointer-events-none");
+      }
     }
 
     function doStop() {
       if (stoppedLocally) return;
+      if (latestRoom && latestRoom.stopped_by) return;
       stoppedLocally = true;
       client.updateAnswers(gatherAnswers());
       setTimeout(() => client.stopRound(), 50);
@@ -762,22 +777,41 @@
       if (letterEl) letterEl.textContent = room.letter || "—";
       if (roundEl) roundEl.textContent = "რაუნდი " + room.round_number + " / " + room.max_rounds;
 
+      if (room.stopped_by && room.state === "playing") {
+        stoppedLocally = true;
+        const stopper = (room.players || []).find((p) => p.id === room.stopped_by);
+        const name = stopper ? stopper.name : "მოთამაშე";
+        let secs = 8;
+        if (room.grace_ends_at) {
+          secs = Math.max(1, Math.ceil(room.grace_ends_at - Date.now() / 1000));
+        }
+        if (banner && banner.classList.contains("hidden")) {
+          showGraceBanner(name, secs, room.stopped_by === room.you);
+        }
+      }
+
       const key = room.code + ":" + room.round_number + ":" + (room.categories || []).join(",");
       if (forms && room.state === "playing" && formsBuiltFor !== key) {
         formsBuiltFor = key;
         forms.innerHTML = room.categories
-          .map((cat) => {
+          .map((cat, i) => {
             const meta = CAT[cat] || { ka: cat, emoji: "✨" };
             let existing = ((room.answers[room.you] || {})[cat] || "");
             if (room.letter && existing.startsWith(room.letter)) existing = existing.slice(room.letter.length);
-            return `<label class="block bg-surface-container rounded-xl p-4 border border-surface-variant/25 hover:border-secondary/30 transition">
-              <span class="text-sm font-bold flex items-center gap-2 mb-2">${meta.emoji} ${meta.ka}</span>
-              <div class="flex items-center bg-surface-container-lowest rounded-lg px-3 focus-within:ring-2 focus-within:ring-secondary/40 border border-surface-variant/20">
-                <span class="text-primary font-extrabold text-xl pr-2 select-none">${escapeHtml(room.letter || "")}</span>
-                <input data-answer-cat="${cat}" value="${escapeAttr(existing)}" autocomplete="off"
-                  class="w-full bg-transparent py-3 outline-none font-semibold" placeholder="ჩაწერე…"/>
+            const filled = existing.trim().length > 0;
+            return `<div class="relative p-2 flex flex-col justify-end min-h-[88px] bg-surface/50 rounded">
+              <div class="w-full flex items-center justify-between text-outline-variant mb-1">
+                <span class="font-label-sm text-label-sm">#${i + 1} ${meta.ka}</span>
+                <span class="material-symbols-outlined text-[16px] ${filled ? "text-tertiary" : "text-outline-variant"}">${filled ? "check_circle" : "edit"}</span>
               </div>
-            </label>`;
+              <div class="flex items-baseline gap-1">
+                <span class="font-body-xl text-body-xl text-secondary font-bold select-none">${escapeHtml(room.letter || "")}</span>
+                <input data-answer-cat="${cat}" value="${escapeAttr(existing)}" autocomplete="off" spellcheck="false"
+                  class="word-cell w-full bg-transparent font-body-xl text-body-xl text-primary font-bold focus:outline-none placeholder-outline/50 py-1"
+                  placeholder="…"/>
+              </div>
+              <div class="w-full h-[2px] bg-primary-container"></div>
+            </div>`;
           })
           .join("");
         forms.querySelectorAll("[data-answer-cat]").forEach((input) => {
@@ -787,15 +821,18 @@
 
       if (scoresEl) {
         const ranked = [...(room.players || [])].sort((a, b) => b.total_score - a.total_score);
+        const catCount = (room.categories || []).length || 1;
         scoresEl.innerHTML = ranked
           .map((p) => {
             const you = p.id === room.you;
-            return `<div class="flex justify-between text-sm ${you ? "text-secondary font-bold" : "text-on-surface-variant"}">
-              <span>${you ? "შენ" : escapeHtml(p.name)}</span>
-              <span class="font-mono">${p.total_score}</span>
-            </div>`;
+            const ans = room.answers[p.id] || {};
+            const filled = Object.keys(ans).filter((c) => (ans[c] || "").trim()).length;
+            return `<span class="inline-flex items-center gap-1 ${you ? "text-secondary font-bold" : ""}">
+              <strong class="text-primary font-bold">${you ? "შენ" : escapeHtml(p.name)}</strong>
+              <span class="font-label-sm text-label-sm bg-surface-container-highest px-1 py-0.5 rounded text-primary font-bold">[${filled}/${catCount}]</span>
+            </span>`;
           })
-          .join("");
+          .join('<span class="opacity-40">•</span>');
       }
     }
 
@@ -808,30 +845,48 @@
     });
 
     client.on("room_state", (room) => {
-      const first = !latestRoom;
       latestRoom = room;
       if (room.state === "playing") {
         renderArena(room);
-        if (first || !countdownTimer) startCountdown(room.round_seconds || 60);
       }
       ensureOnCorrectPage(room);
     });
+    client.on("stop_called", (payload) => {
+      stoppedLocally = true;
+      const name = (payload && payload.stopped_by_name) || "მოთამაშე";
+      const secs = (payload && payload.grace_seconds) || 8;
+      const isYou = payload && latestRoom && payload.stopped_by === latestRoom.you;
+      showGraceBanner(name, secs, isYou);
+      client.updateAnswers(gatherAnswers());
+      if (payload && payload.room) {
+        latestRoom = Object.assign({}, latestRoom || {}, payload.room, {
+          stopped_by: payload.stopped_by,
+          grace_ends_at: payload.grace_ends_at,
+        });
+      }
+    });
     client.on("round_stopped", (payload) => {
-      clearInterval(countdownTimer);
+      clearInterval(graceTimer);
       const who = payload && payload.stopped_by;
       const player = (latestRoom && latestRoom.players || []).find((p) => p.id === who);
-      const name = player ? player.name : "მოთამაშე";
+      const name = player ? player.name : ((payload && payload.stopped_by_name) || "მოთამაშე");
       if (banner) {
         banner.classList.remove("hidden");
         const h4 = banner.querySelector("h4");
-        if (h4) h4.textContent = (who === (latestRoom && latestRoom.you) ? "შენ" : name) + " დააჭირა STOP-ს!";
+        if (h4) h4.textContent = (who === (latestRoom && latestRoom.you) ? "შენ" : name) + " დაასრულა — რაუნდი დაიხურა!";
       }
+      if (graceEl) graceEl.textContent = "";
       document.querySelectorAll("[data-answer-cat]").forEach((i) => {
         i.disabled = true;
       });
+      client.updateAnswers(gatherAnswers());
       setTimeout(() => go(PATHS.results), 800);
     });
     client.on("error", (err) => {
+      if (err && err.code === "already_stopped") {
+        stoppedLocally = true;
+        return;
+      }
       stoppedLocally = false;
       toast((err && err.message) || "შეცდომა");
     });
@@ -870,10 +925,13 @@
     }
 
     function pointsBadge(pts) {
-      if (pts >= 15) return '<span class="text-[10px] font-bold text-secondary">+15</span>';
-      if (pts >= 10) return '<span class="text-[10px] font-bold text-primary">+10</span>';
-      if (pts >= 5) return '<span class="text-[10px] font-bold text-on-surface-variant">+5</span>';
-      return '<span class="text-[10px] text-error">0</span>';
+      if (pts >= 15)
+        return '<span class="inline-flex items-center gap-1 font-label-md text-label-md text-on-secondary bg-secondary px-space-xs py-0.5 rounded-full font-bold"><span class="material-symbols-outlined text-[14px]">star</span>+15</span>';
+      if (pts >= 10)
+        return '<span class="inline-flex items-center gap-1 font-label-md text-label-md text-on-tertiary-container bg-tertiary-fixed/30 px-space-xs py-0.5 rounded-full font-bold"><span class="material-symbols-outlined text-[14px]">check_circle</span>+10</span>';
+      if (pts >= 5)
+        return '<span class="inline-flex items-center gap-1 font-label-md text-label-md text-on-secondary-fixed-variant bg-secondary-fixed/50 px-space-xs py-0.5 rounded-full font-bold"><span class="material-symbols-outlined text-[14px]">content_copy</span>+5</span>';
+      return '<span class="inline-flex items-center gap-1 font-label-md text-label-md text-on-error bg-error px-space-xs py-0.5 rounded-full font-bold">0</span>';
     }
 
     function renderResults(room) {
@@ -887,7 +945,7 @@
       if (titleEl) {
         titleEl.textContent = verifying
           ? "რაუნდი " + room.round_number + " — შემოწმება…"
-          : "რაუნდი " + room.round_number + "-ის შედეგები";
+          : "რაუნდი " + room.round_number + " — შემოწმება & გასწორება";
       }
 
       if (room.state !== "results" || verifying) return;
@@ -898,12 +956,12 @@
         const tbody = table.querySelector("tbody");
         if (thead) {
           thead.innerHTML =
-            "<tr class=\"text-left text-on-surface-variant text-xs uppercase\">" +
-            "<th class=\"py-2 pr-3\">კატეგორია</th>" +
+            '<tr class="bg-primary text-on-primary">' +
+            '<th class="py-space-sm px-space-md font-label-md text-label-md uppercase tracking-wider rounded-tl-xl">კატეგორია</th>' +
             players
               .map((p) => {
                 const you = p.id === room.you;
-                return `<th class="py-2 px-2 ${you ? "text-secondary" : ""}">${you ? "შენ" : escapeHtml(p.name)}</th>`;
+                return `<th class="py-space-sm px-space-xs font-label-md text-label-md uppercase text-center">${you ? "შენ" : escapeHtml(p.name)}</th>`;
               })
               .join("") +
             "</tr>";
@@ -918,15 +976,15 @@
                   const pts = ((room.round_points[p.id] || {})[cat]) || 0;
                   const ans = v.answer || ((room.answers[p.id] || {})[cat]) || "—";
                   const invalid = v.valid === false;
-                  return `<td class="py-2.5 px-2 align-top">
-                    <div class="flex flex-col gap-0.5">
-                      <span class="${invalid ? "line-through text-error" : ""} font-semibold">${escapeHtml(ans)}</span>
+                  return `<td class="py-space-sm px-space-xs align-top text-center">
+                    <div class="flex flex-col items-center gap-1">
+                      <span class="font-body-lg text-body-lg ${invalid ? "line-through text-error decoration-secondary decoration-2" : "text-primary font-bold"}">${escapeHtml(ans || "—")}</span>
                       ${pointsBadge(pts)}
                     </div></td>`;
                 })
                 .join("");
-              return `<tr class="border-t border-surface-variant/30">
-                <td class="py-2.5 pr-3 font-bold whitespace-nowrap">${meta.emoji} ${meta.ka}</td>${cells}</tr>`;
+              return `<tr class="border-t border-surface-container-high bg-surface">
+                <td class="py-space-sm px-space-md font-headline-md text-headline-md text-primary whitespace-nowrap">${meta.ka}</td>${cells}</tr>`;
             })
             .join("");
         }
@@ -937,11 +995,14 @@
           (a, b) => (room.round_totals[b.id] || 0) - (room.round_totals[a.id] || 0)
         );
         sidebar.innerHTML = ranked
-          .map((p, i) => {
+          .map((p) => {
             const you = p.id === room.you;
-            return `<div class="flex items-center justify-between p-2.5 rounded-lg ${you ? "bg-surface-container-highest" : "bg-surface-container"}">
-              <span class="font-bold text-sm truncate">${i + 1}. ${you ? "შენ" : escapeHtml(p.name)}</span>
-              <span class="text-primary font-extrabold">+${room.round_totals[p.id] || 0}</span>
+            return `<div class="flex items-center justify-between bg-surface p-space-xs rounded shadow-xs">
+              <div class="flex items-center gap-space-xs min-w-0">
+                <span class="w-2.5 h-2.5 rounded-full ${you ? "bg-secondary" : "bg-outline"} shrink-0"></span>
+                <span class="font-body-lg text-body-lg ${you ? "text-primary font-bold" : "text-on-surface"} truncate">${you ? "შენ" : escapeHtml(p.name)}</span>
+              </div>
+              <span class="font-headline-md text-headline-md ${you ? "text-secondary" : "text-primary"} shrink-0">${room.round_totals[p.id] || 0} ქ</span>
             </div>`;
           })
           .join("");
@@ -949,9 +1010,12 @@
 
       if (nextBtn) {
         nextBtn.style.display = isHostOf(room) ? "" : "none";
-        nextBtn.textContent = room.match_over
+        const txt = room.match_over
           ? "ფინალური შედეგები"
           : "შემდეგი რაუნდი (" + (room.round_number + 1) + "/" + room.max_rounds + ")";
+        const label = document.getElementById("nextRoundBtnLabel");
+        if (label) label.textContent = txt;
+        else nextBtn.textContent = txt;
       }
     }
 
@@ -1010,27 +1074,34 @@
           .slice(0, 3)
           .map((p, i) => {
             const you = p.id === room.you;
-            const size = i === 0 ? "text-2xl" : "text-lg";
-            return `<div class="flex-1 bg-surface-container-low rounded-2xl p-5 text-center border border-surface-variant/30 shadow-lg ${i === 0 ? "sm:mb-6 sm:scale-105 border-primary/30 shadow-[0_0_32px_rgba(245,166,35,0.2)]" : ""}">
-              <div class="text-3xl mb-2">${medals[i]}</div>
-              <div class="${size} font-extrabold ${you ? "text-secondary" : "text-on-surface"} truncate">${escapeHtml(p.name)}</div>
-              <div class="text-primary font-mono font-extrabold text-xl mt-2">${p.total_score} ქ</div>
+            const name = you ? "შენ (" + escapeHtml(p.name) + ")" : escapeHtml(p.name);
+            return `<div class="flex-1 text-center">
+              ${i === 0 ? '<span class="font-label-lg text-label-lg tracking-widest text-secondary uppercase font-bold block mb-1">★ ოქროს მედალოსანი ★</span>' : ""}
+              <div class="relative inline-block px-4 py-2">
+                <div class="text-3xl mb-1">${medals[i]}</div>
+                <div class="${i === 0 ? "font-headline-xl text-headline-xl" : "font-headline-md text-headline-md"} text-primary font-bold truncate max-w-[220px] mx-auto">${name}</div>
+                <div class="font-body-xl text-body-xl text-secondary font-bold">${p.total_score} ქულა</div>
+              </div>
             </div>`;
           })
           .join("");
       }
 
       if (standings) {
+        const medals = ["🥇", "🥈", "🥉"];
         standings.innerHTML = ranked
           .map((p, i) => {
             const you = p.id === room.you;
-            return `<div class="flex items-center justify-between p-3 rounded-lg ${you ? "bg-secondary/10" : "bg-surface-container"}">
-              <div class="flex items-center gap-2.5 min-w-0">
-                <span class="w-6 text-center font-bold text-on-surface-variant">${i + 1}</span>
-                <span class="w-8 h-8 rounded-full bg-surface-variant flex items-center justify-center font-bold text-sm">${initial(p.name)}</span>
-                <span class="font-bold truncate ${you ? "text-secondary" : ""}">${you ? "შენ (" + escapeHtml(p.name) + ")" : escapeHtml(p.name)}</span>
+            const name = you ? "შენ (" + escapeHtml(p.name) + ")" : escapeHtml(p.name);
+            return `<div class="flex items-center justify-between py-space-sm px-space-md ${you ? "bg-surface" : "bg-surface-container-lowest/40"} hover:bg-surface-container-lowest transition-colors">
+              <div class="flex items-center gap-space-xs min-w-0">
+                <span class="font-headline-md text-headline-md ${i < 3 ? "text-secondary" : "text-outline"}">${i < 3 ? medals[i] : i + 1 + "."}</span>
+                <div class="min-w-0">
+                  <span class="font-headline-md text-headline-md text-primary block leading-none truncate">${name}</span>
+                  <span class="font-label-sm text-label-sm text-outline block mt-0.5">${i === 0 ? "ჩემპიონი" : i + 1 + "-ე ადგილი"}</span>
+                </div>
               </div>
-              <span class="font-mono font-bold">${p.total_score} ქ</span>
+              <span class="font-headline-lg text-headline-lg ${i === 0 ? "text-secondary" : "text-primary"} font-bold shrink-0">${p.total_score}</span>
             </div>`;
           })
           .join("");

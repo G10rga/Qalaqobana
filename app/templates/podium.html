@@ -1,30 +1,47 @@
 {% extends "base_live.html" %}
 {% set page = "podium" %}
-{% block title %}ფინალი — ქალაქობანა{% endblock %}
+{% block title %}შედეგები — ქალაქობანა{% endblock %}
 {% block content %}
-<div class="flex flex-col gap-8 animate-fadeUp">
-  <div class="text-center space-y-2 relative">
-    <div class="absolute left-1/2 -translate-x-1/2 -top-6 w-64 h-64 bg-primary/10 rounded-full blur-[80px] pointer-events-none"></div>
-    <h1 class="relative text-3xl sm:text-4xl font-extrabold text-primary">მატჩი დასრულდა</h1>
-    <p id="podium-subtitle" class="relative text-on-surface-variant text-sm"></p>
+<div class="flex flex-col w-full relative">
+  <div class="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-space-md mb-space-lg relative">
+    <div class="flex-1">
+      <div class="inline-flex items-center gap-space-xs px-space-sm py-1 bg-surface-container rounded-full text-secondary font-label-md text-label-md uppercase tracking-wider mb-2">
+        <span class="material-symbols-outlined text-[16px]">celebration</span>
+        <span id="podium-subtitle">თამაში დასრულებულია</span>
+      </div>
+      <h1 class="font-headline-xl text-headline-xl text-primary tracking-tight leading-tight">საბოლოო შედეგები</h1>
+      <p class="font-body-xl text-body-xl text-on-surface-variant -mt-1">გამარჯვებული გამოვლენილია!</p>
+    </div>
+    <div class="relative rotate-[-8deg] self-center lg:self-auto">
+      <div class="w-36 h-36 rounded-full bg-error/5 flex flex-col items-center justify-center p-3 text-center text-secondary border-2 border-dashed border-secondary">
+        <span class="material-symbols-outlined text-[28px]">workspace_premium</span>
+        <span class="font-headline-md text-headline-md leading-none uppercase tracking-tighter">ჩემპიონი</span>
+        <span class="font-label-sm text-label-sm tracking-widest uppercase opacity-90">DESK CHAMPION</span>
+      </div>
+    </div>
   </div>
 
-  <div id="podium-top" class="flex flex-col sm:flex-row items-end justify-center gap-3 min-h-[160px]"></div>
+  <div id="podium-top" class="relative w-full rounded-xl bg-surface-container-low p-space-md sm:p-space-lg shadow-sm mb-space-xl flex flex-col sm:flex-row gap-4"></div>
 
-  <section class="space-y-3">
-    <h2 class="font-bold text-lg">სრული რეიტინგი</h2>
-    <div id="podium-standings" class="flex flex-col gap-2"></div>
-  </section>
+  <div class="mb-space-xl">
+    <div class="flex items-center gap-space-xs mb-space-sm">
+      <span class="material-symbols-outlined text-secondary text-[22px]">format_list_numbered</span>
+      <h2 class="font-headline-lg text-headline-lg text-primary">საბოლოო ცხრილი</h2>
+    </div>
+    <div id="podium-standings" class="w-full rounded-xl bg-surface-container shadow-sm flex flex-col divide-y divide-surface-container-high overflow-hidden"></div>
+  </div>
 
-  <div class="flex flex-col sm:flex-row gap-3">
-    <button type="button" id="btn-replay"
-      class="flex-1 py-4 rounded-xl bg-gradient-to-r from-primary-container to-primary text-on-primary-container font-extrabold shadow-[0_8px_28px_rgba(245,166,35,0.3)] hover:scale-[1.01] active:scale-[0.99] transition">
-      ახალი მატჩი
-    </button>
+  <div class="flex flex-wrap items-center justify-between gap-space-md pt-space-sm">
     <a href="/" data-path="lobbies"
-      class="flex-1 py-4 rounded-xl bg-surface-container-high text-center font-bold text-on-surface border border-surface-variant/40 hover:bg-surface-container transition">
-      გასვლა
+      class="group flex items-center gap-space-xs px-space-md py-space-sm rounded-lg bg-surface-container hover:bg-surface-container-high transition-colors shadow-sm text-on-surface-variant hover:text-on-surface">
+      <span class="material-symbols-outlined text-[20px]">meeting_room</span>
+      <span class="font-headline-md text-headline-md">ოთახის დატოვება</span>
     </a>
+    <button type="button" id="btn-replay"
+      class="relative group flex items-center gap-space-xs px-space-lg py-space-sm rounded-lg bg-primary text-on-primary hover:bg-primary-container transition-all shadow-md active:translate-y-0.5">
+      <span class="material-symbols-outlined text-[22px] text-secondary-fixed">replay</span>
+      <span class="font-headline-md text-headline-md font-bold">ხელახლა თამაში</span>
+    </button>
   </div>
 </div>
 {% endblock %}

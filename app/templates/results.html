@@ -1,44 +1,76 @@
 {% extends "base_live.html" %}
 {% set page = "results" %}
-{% block title %}შედეგები — ქალაქობანა{% endblock %}
+{% block title %}შემოწმება — ქალაქობანა{% endblock %}
 {% block content %}
-<div class="flex flex-col gap-6 animate-fadeUp">
-  <div class="text-center space-y-2">
-    <p id="results-letter" class="text-5xl sm:text-6xl font-extrabold text-primary drop-shadow-[0_0_24px_rgba(255,200,128,0.25)]">—</p>
-    <h1 id="results-title" class="text-xl sm:text-2xl font-extrabold">შედეგები</h1>
-  </div>
-
-  <div id="q-pending" class="rounded-2xl bg-surface-container-low border border-surface-variant/40 p-12 sm:p-16 text-center space-y-4 shadow-xl">
-    <div class="mx-auto w-14 h-14 border-4 border-secondary/25 border-t-secondary rounded-full animate-spin"></div>
-    <p class="font-extrabold text-xl">შედეგები მზადდება…</p>
-    <p class="text-sm text-on-surface-variant">ვამოწმებთ პასუხებს</p>
-  </div>
-
-  <div id="results-body" class="hidden grid lg:grid-cols-3 gap-5 sm:gap-6">
-    <div class="lg:col-span-2 overflow-x-auto rounded-2xl bg-surface-container-low border border-surface-variant/30 p-3 sm:p-4">
-      <table class="w-full text-sm" id="results-table">
-        <thead></thead>
-        <tbody></tbody>
-      </table>
+<div class="flex flex-col w-full">
+  <div class="flex flex-col lg:flex-row lg:items-end justify-between gap-space-md pb-space-lg">
+    <div>
+      <div class="flex items-center gap-space-sm mb-space-xs flex-wrap">
+        <span class="px-space-sm py-0.5 rounded-full bg-secondary text-on-secondary font-label-sm text-label-sm tracking-wider uppercase shadow-sm">შემოწმება</span>
+        <span class="font-label-md text-label-md text-outline" id="results-meta"></span>
+      </div>
+      <h1 class="font-headline-xl text-headline-xl text-primary tracking-tight flex items-baseline gap-space-sm flex-wrap">
+        <span id="results-title">შემოწმება</span>
+        <span id="results-letter" class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-secondary-container text-on-secondary-container font-headline-xl text-headline-xl rotate-[-4deg] shadow-md">—</span>
+      </h1>
+      <p class="font-body-lg text-body-lg text-secondary -mt-1 italic flex items-center gap-space-xs">
+        <span class="material-symbols-outlined text-secondary text-[22px]">edit_note</span>
+        პასუხები მოწმდება ლექსიკონით და ნაწილდება ქულები.
+      </p>
     </div>
-    <aside class="space-y-3">
-      <h2 class="font-bold flex items-center gap-2">
-        <span class="material-symbols-outlined text-primary text-[20px]">leaderboard</span>
-        რაუნდის ქულები
-      </h2>
-      <div id="results-sidebar" class="flex flex-col gap-2"></div>
-      <button type="button" id="nextRoundBtn"
-        class="w-full py-3.5 rounded-xl bg-gradient-to-r from-primary-container to-primary text-on-primary-container font-extrabold shadow-[0_8px_24px_rgba(245,166,35,0.3)] hover:scale-[1.01] active:scale-[0.99] transition mt-2">
-        შემდეგი რაუნდი
-      </button>
-    </aside>
   </div>
 
-  <div class="flex flex-wrap justify-center gap-3 text-[11px] text-on-surface-variant pt-2">
-    <span class="px-2.5 py-1 rounded-full bg-secondary/10 text-secondary font-bold">15 · მხოლოდ შენ</span>
-    <span class="px-2.5 py-1 rounded-full bg-primary/10 text-primary font-bold">10 · უნიკალური</span>
-    <span class="px-2.5 py-1 rounded-full bg-surface-container font-bold">5 · იგივე</span>
-    <span class="px-2.5 py-1 rounded-full bg-error/10 text-error font-bold">0 · არასწორი</span>
+  <div id="q-pending" class="hidden mb-6 p-6 rounded-xl bg-surface-container-low shadow-md text-center">
+    <span class="material-symbols-outlined text-secondary text-[36px] animate-pulse">hourglass_top</span>
+    <p class="font-headline-md text-headline-md text-primary mt-2">პასუხები მოწმდება…</p>
+  </div>
+
+  <div id="results-body" class="hidden">
+    <div class="grid grid-cols-1 xl:grid-cols-12 gap-space-lg items-start">
+      <div class="xl:col-span-9 overflow-x-auto rounded-xl bg-surface-container-low shadow-md p-space-md">
+        <table id="results-table" class="w-full text-left border-collapse min-w-[480px]">
+          <thead></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <div class="xl:col-span-3 flex flex-col gap-space-md">
+        <div class="bg-[#fef9c3] text-[#422006] p-space-md rounded-xl shadow-lg relative rotate-[1.5deg]">
+          <div class="absolute -top-3 left-1/2 -translate-x-1/2 w-20 h-6 bg-surface-variant/75 rounded-sm shadow-sm"></div>
+          <div class="flex items-center gap-space-xs mb-space-sm pt-space-xs">
+            <span class="material-symbols-outlined text-secondary text-[22px]">gavel</span>
+            <h3 class="font-headline-md text-headline-md text-primary">ქულების წესი</h3>
+          </div>
+          <div class="flex flex-col gap-space-xs font-body-lg text-body-lg">
+            <div class="flex justify-between p-space-xs bg-surface/60 rounded"><span>★ ერთადერთი</span><span class="font-label-md font-bold">15</span></div>
+            <div class="flex justify-between p-space-xs bg-surface/60 rounded"><span>✓ უნიკალური</span><span class="font-label-md font-bold">10</span></div>
+            <div class="flex justify-between p-space-xs bg-surface/60 rounded"><span>≈ დამთხვევა</span><span class="font-label-md font-bold">5</span></div>
+            <div class="flex justify-between p-space-xs bg-surface/60 rounded"><span>✗ არასწორი</span><span class="font-label-md font-bold">0</span></div>
+          </div>
+        </div>
+        <div class="bg-surface-container rounded-xl p-space-md shadow-md">
+          <div class="flex items-center justify-between mb-space-sm">
+            <span class="font-headline-md text-headline-md text-primary">რაუნდის ჯამი</span>
+            <span class="font-label-sm text-label-sm px-space-xs py-0.5 rounded bg-primary text-on-primary font-mono">LIVE</span>
+          </div>
+          <div id="results-sidebar" class="flex flex-col gap-space-xs"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="mt-space-xl pt-space-lg flex flex-col sm:flex-row items-center justify-between gap-space-md">
+      <div class="flex items-center gap-space-md">
+        <div class="w-16 h-16 rounded-full border-4 border-secondary border-dashed flex flex-col items-center justify-center rotate-[-10deg] text-secondary">
+          <span class="material-symbols-outlined text-[20px]">verified</span>
+          <span class="font-label-sm text-label-sm font-bold leading-tight uppercase">შემოწმ.</span>
+        </div>
+        <span class="font-body-xl text-body-xl text-secondary font-bold">შემოწმებულია ✓</span>
+      </div>
+      <button type="button" id="nextRoundBtn"
+        class="w-full sm:w-auto px-space-xl py-space-sm rounded-lg bg-secondary text-on-secondary font-headline-md text-headline-md shadow-[3px_4px_0px_rgba(30,34,56,0.3)] hover:brightness-110 active:translate-y-[2px] transition-all flex items-center justify-center gap-space-sm">
+        <span id="nextRoundBtnLabel">შემდეგი რაუნდი</span>
+        <span class="material-symbols-outlined text-[24px]">arrow_forward</span>
+      </button>
+    </div>
   </div>
 </div>
 {% endblock %}
