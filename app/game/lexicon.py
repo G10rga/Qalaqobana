@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import csv
 import logging
+import sqlite3
 from pathlib import Path
 
 from flask import current_app, has_app_context
@@ -156,6 +157,47 @@ def import_from_csv(*, force: bool = False) -> int:
     return count
 
 
+def lookup(word: str, category: str) -> bool:
+    """True if normalized word exists for category in qalaqobana.db.
+
+    Uses raw sqlite so it works from Socket.IO background threads
+    (no Flask app context required).
+    """
+    norm = normalize_for_compare(word)
+    if not norm or not category:
+        return False
+    path = db_path()
+    if not path.exists():
+        return False
+    conn = sqlite3.connect(str(path), timeout=5)
+    try:
+        row = conn.execute(
+            "SELECT 1 FROM words WHERE normalized = ? AND category = ? LIMIT 1",
+            (norm, category),
+        ).fetchone()
+        return row is not None
+    finally:
+        conn.close()
+
+
+def stats() -> dict[str, int]:
+    path = db_path()
+    if not path.exists():
+        return {"total": 0}
+    conn = sqlite3.connect(str(path), timeout=5)
+    try:
+        total = conn.execute("SELECT COUNT(*) FROM words").fetchone()[0]
+        by_cat = {
+            cat: n
+            for cat, n in conn.execute(
+                "SELECT category, COUNT(*) FROM words GROUP BY category"
+            )
+        }
+        return {"total": int(total), **by_cat}
+    finally:
+        conn.close()
+
+
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     from app import create_app
@@ -164,24 +206,3 @@ if __name__ == "__main__":
     with application.app_context():
         n = import_from_csv(force=True)
         print(f"OK — {n} words in {db_path()}")
-
-
-def lookup(word: str, category: str) -> bool:
-    """True if normalized word exists for category in qalaqobana.db."""
-    norm = normalize_for_compare(word)
-    if not norm or not category:
-        return False
-    return (
-        Word.query.filter_by(normalized=norm, category=category).limit(1).first()
-        is not None
-    )
-
-
-def stats() -> dict[str, int]:
-    total = Word.query.count()
-    rows = (
-        db.session.query(Word.category, db.func.count(Word.id))
-        .group_by(Word.category)
-        .all()
-    )
-    return {"total": total, **{cat: n for cat, n in rows}}

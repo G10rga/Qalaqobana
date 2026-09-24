@@ -69,6 +69,7 @@ class Room:
     created_at: float = 0.0
     max_rounds: int = 5
     round_seconds: int = 60
+    grace_ends_at: float | None = None
 
     def host(self) -> Player | None:
         return self.players.get(self.host_id)
@@ -108,6 +109,7 @@ class Room:
             "verification_done": self.verification_done,
             "max_rounds": self.max_rounds,
             "round_seconds": self.round_seconds,
+            "grace_ends_at": self.grace_ends_at,
             "match_over": self.round_number >= self.max_rounds
             and self.state == "results",
             "you": for_player_id,
