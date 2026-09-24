@@ -46,8 +46,20 @@ class RoomFlowTests(unittest.TestCase):
         )
 
         stopped = game.stop_round(room.code, guest.id)
-        self.assertEqual(stopped.state, STATE_VERIFYING)
+        self.assertEqual(stopped.state, STATE_PLAYING)
         self.assertEqual(stopped.stopped_by, guest.id)
+        self.assertIsNotNone(stopped.grace_ends_at)
+
+        # Others can still update during grace
+        game.update_answers(
+            room.code,
+            host.id,
+            {cat: f"{letter}bbb" for cat in started.categories},
+        )
+
+        locked = game.finalize_stop(room.code)
+        self.assertEqual(locked.state, STATE_VERIFYING)
+        self.assertEqual(locked.stopped_by, guest.id)
 
         def fake_verify(answers, categories, letter):
             return {cat: _ok(answers.get(cat, "")) for cat in categories}
@@ -57,9 +69,10 @@ class RoomFlowTests(unittest.TestCase):
 
         self.assertEqual(done.state, STATE_RESULTS)
         self.assertTrue(done.verification_done)
-        # same answers → 5 each category
-        self.assertEqual(done.round_totals[host.id], 5 * len(done.categories))
-        self.assertEqual(done.round_totals[guest.id], 5 * len(done.categories))
+        # host unique words → 10 each; guest still has aaa → also unique? Wait host changed to bbb
+        # both unique per category → 10 each
+        self.assertEqual(done.round_totals[host.id], 10 * len(done.categories))
+        self.assertEqual(done.round_totals[guest.id], 10 * len(done.categories))
 
 
 if __name__ == "__main__":
