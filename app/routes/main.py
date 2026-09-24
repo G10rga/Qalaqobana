@@ -30,6 +30,11 @@ def lobby():
     return render_template("lobby.html")
 
 
+@main_bp.get("/spin")
+def spin():
+    return render_template("spin.html")
+
+
 @main_bp.get("/arena")
 def arena():
     return render_template("arena.html")

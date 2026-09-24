@@ -108,8 +108,9 @@ CATEGORY_HINTS: dict[str, list[str]] = {
     ],
 }
 
-# Soft: letter + word-shape is enough if wiki is inconclusive.
-SOFT_CATEGORIES = {"name", "food"}
+# Soft: letter + word-shape is enough if wiki is inconclusive / down.
+# Country/city/river stay stricter when Wikipedia responds.
+SOFT_CATEGORIES = {"name", "food", "animal", "plant", "film"}
 
 # Country/city: near wiki title can count even without strong keyword hints.
 # River is stricter — see _river_rejected / river matching rules.
@@ -134,6 +135,12 @@ KNOWN_ANSWERS: dict[str, set[str]] = {
     "ზაგრებიი": {"city"},
     "ყატარი": {"country"},
     "ყატარის": {"country"},
+    "გრენლანდია": {"country"},
+    "გუანჯოუ": {"city"},
+    "გუანჯოუი": {"city"},
+    "გედი": {"animal"},
+    "გოგრა": {"plant"},
+    "გიორგი": {"name"},
 }
 
 # Georgian words appended to ka.wikipedia searches
@@ -232,6 +239,18 @@ def verify_answer(answer: str, category: str, letter: str) -> AnswerVerdict:
             source=wiki["source"],
         )
 
+    # Wikipedia down / rate-limited: don't zero letter-valid answers.
+    if wiki.get("unavailable"):
+        return AnswerVerdict(
+            answer=raw,
+            normalized=normalized,
+            letter_ok=True,
+            valid=True,
+            status="uncertain",
+            reason="Accepted (verification offline)",
+            source="fallback",
+        )
+
     if wiki["found"] and category in SOFT_CATEGORIES:
         return AnswerVerdict(
             answer=raw,
@@ -311,16 +330,20 @@ def _river_rejected(raw: str) -> str | None:
 
 
 def _wikipedia_check(answer: str, category: str) -> dict[str, Any]:
-    """Return {found, matched, title_close, reason, source} via ka.wikipedia only."""
+    """Return {found, matched, title_close, reason, source, unavailable} via ka.wikipedia."""
     hints = CATEGORY_HINTS.get(category, [])
     queries = _search_queries(answer, category)
 
     best_found: dict[str, Any] | None = None
+    attempted = 0
+    failed = 0
 
     for query in queries:
+        attempted += 1
         try:
             hits = _wiki_search("ka", query)
         except Exception as exc:
+            failed += 1
             logger.warning("Wikipedia search failed (ka/%s): %s", query, exc)
             continue
 
@@ -346,6 +369,7 @@ def _wikipedia_check(answer: str, category: str) -> dict[str, Any]:
                         "found": True,
                         "matched": True,
                         "title_close": True,
+                        "unavailable": False,
                         "reason": "Wikipedia suggests river",
                         "source": source,
                     }
@@ -354,6 +378,7 @@ def _wikipedia_check(answer: str, category: str) -> dict[str, Any]:
                         "found": True,
                         "matched": True,
                         "title_close": True,
+                        "unavailable": False,
                         "reason": "Wikipedia title is a river",
                         "source": source,
                     }
@@ -362,6 +387,7 @@ def _wikipedia_check(answer: str, category: str) -> dict[str, Any]:
                         "found": True,
                         "matched": False,
                         "title_close": True,
+                        "unavailable": False,
                         "reason": "Place found but not confirmed as river",
                         "source": source,
                     }
@@ -372,6 +398,7 @@ def _wikipedia_check(answer: str, category: str) -> dict[str, Any]:
                     "found": True,
                     "matched": True,
                     "title_close": True,
+                    "unavailable": False,
                     "reason": f"Wikipedia suggests {category}",
                     "source": source,
                 }
@@ -381,6 +408,7 @@ def _wikipedia_check(answer: str, category: str) -> dict[str, Any]:
                     "found": True,
                     "matched": True,
                     "title_close": True,
+                    "unavailable": False,
                     "reason": f"Wikipedia title is a {category}",
                     "source": source,
                 }
@@ -393,6 +421,7 @@ def _wikipedia_check(answer: str, category: str) -> dict[str, Any]:
                     "found": True,
                     "matched": matched,
                     "title_close": bool(answer_close),
+                    "unavailable": False,
                     "reason": "Near Wikipedia title",
                     "source": source,
                 }
@@ -406,14 +435,20 @@ def _wikipedia_check(answer: str, category: str) -> dict[str, Any]:
                     "found": True,
                     "matched": False,
                     "title_close": False,
+                    "unavailable": False,
                     "reason": "Wikipedia hit without category confirmation",
                     "source": source,
                 }
 
-    return best_found or {
+    if best_found:
+        return best_found
+
+    unavailable = attempted > 0 and failed == attempted
+    return {
         "found": False,
         "matched": False,
         "title_close": False,
+        "unavailable": unavailable,
         "reason": "",
         "source": "",
     }

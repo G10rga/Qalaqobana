@@ -14,7 +14,16 @@
   };
   const REQUIRED_CATS = ["country", "city", "animal", "plant", "name"];
   
-  const PATHS = { home: "/", lobby: "/lobby", arena: "/arena", results: "/results", podium: "/podium" };
+  // Georgian Mkhedruli alphabet (same as server GEORGIAN_LETTERS)
+  const GEO_LETTERS = "აბგდევზთიკლმნოპჟრსტუფქღყშჩცძწჭხჯჰ".split("");
+  const PATHS = {
+    home: "/",
+    lobby: "/lobby",
+    spin: "/spin",
+    arena: "/arena",
+    results: "/results",
+    podium: "/podium",
+  };
 
   const page = detectPage();
   const client = window.QalaqobanaClient.create();
@@ -27,6 +36,7 @@
     const p = location.pathname.replace(/\/$/, "") || "/";
     if (p === "/" || p === "/home") return "home";
     if (p.includes("lobby")) return "lobby";
+    if (p.includes("spin")) return "spin";
     if (p.includes("arena")) return "arena";
     if (p.includes("results")) return "results";
     if (p.includes("podium")) return "podium";
@@ -37,6 +47,48 @@
     if (location.pathname !== path) location.href = path;
   }
 
+  function spinKey(room) {
+    return (room && room.code) + ":" + (room && room.round_number);
+  }
+
+  function needsLetterSpin(room) {
+    if (!room || room.state !== "playing" || !room.letter) return false;
+    return sessionStorage.getItem("qalaqobana_need_spin") === spinKey(room);
+  }
+
+  function beginLetterSpin(payload) {
+    const code =
+      (latestRoom && latestRoom.code) ||
+      (client.roomCode) ||
+      (client.loadSession() && client.loadSession().roomCode);
+    const round =
+      (payload && payload.round_number) ||
+      (latestRoom && latestRoom.round_number) ||
+      1;
+    if (!code) {
+      go(PATHS.spin);
+      return;
+    }
+    sessionStorage.setItem("qalaqobana_need_spin", code + ":" + round);
+    go(PATHS.spin);
+  }
+
+  function finishLetterSpin(room) {
+    sessionStorage.removeItem("qalaqobana_need_spin");
+    if (room) sessionStorage.setItem("qalaqobana_spin_done", spinKey(room));
+    go(PATHS.arena);
+  }
+
+  // When leaving, clear spin flags
+  const _leaveBtn = document.getElementById("leave-btn");
+  if (_leaveBtn && !_leaveBtn._spinHooked) {
+    _leaveBtn._spinHooked = true;
+    _leaveBtn.addEventListener("click", () => {
+      sessionStorage.removeItem("qalaqobana_need_spin");
+      sessionStorage.removeItem("qalaqobana_spin_done");
+    });
+  }
+
   function routeForState(room) {
     if (!room) return PATHS.home;
     if (room.match_over) return PATHS.podium;
@@ -44,6 +96,7 @@
       case "lobby":
         return PATHS.lobby;
       case "playing":
+        if (needsLetterSpin(room)) return PATHS.spin;
         return PATHS.arena;
       case "verifying":
       case "results":
@@ -352,6 +405,7 @@
         const cats = collectCheckedCats();
         const badge = document.getElementById("categoryCountBadge");
         if (badge) badge.textContent = cats.length + " არჩეულია";
+        if (latestRoom) latestRoom.categories = cats.slice();
         client.setSettings({ categories: cats });
       });
     }
@@ -427,11 +481,215 @@
         setTimeout(() => client.startRound(), 200);
       }
     });
-    client.on("round_started", () => go(PATHS.arena));
+    client.on("round_started", (payload) => beginLetterSpin(payload || latestRoom));
     client.on("error", (err) => {
       if (startBtn) startBtn.disabled = false;
       toast((err && err.message) || "შეცდომა");
     });
+    client.socket.on("connect", () => client.sync());
+    if (client.socket.connected) client.sync();
+  }
+
+  // ---------- LETTER SPIN (CS:GO-style) ----------
+  function initSpin() {
+    const session = client.loadSession();
+    if (!session.roomCode || !session.playerId) {
+      go(PATHS.home);
+      return;
+    }
+
+    const track = document.getElementById("rouletteTrack");
+    const glow = document.getElementById("centralGlow");
+    const statusEl = document.getElementById("spin-status");
+    const teaserEl = document.getElementById("spin-teaser");
+    const iconEl = document.getElementById("spin-icon");
+    const roundBadge = document.getElementById("spin-round-badge");
+    const revealBadge = document.getElementById("revealBadge");
+    const revealLetter = document.getElementById("revealLetter");
+    const revealTitle = document.getElementById("revealTitle");
+    const revealSub = document.getElementById("revealSub");
+    const countdownSeconds = document.getElementById("countdownSeconds");
+    const countdownBar = document.getElementById("countdownProgressBar");
+    const catsEl = document.getElementById("spin-categories");
+
+    const TIERS = [
+      { tag: "#MIL-SPEC", border: "border-blue-500/35", bar: "bg-blue-500", text: "text-blue-400", dot: "bg-blue-500" },
+      { tag: "#RESTRICTED", border: "border-purple-500/35", bar: "bg-purple-500", text: "text-purple-400", dot: "bg-purple-500" },
+      { tag: "#CLASSIFIED", border: "border-pink-500/35", bar: "bg-pink-500", text: "text-pink-400", dot: "bg-pink-500" },
+      { tag: "#COVERT", border: "border-red-500/35", bar: "bg-red-500", text: "text-red-400", dot: "bg-red-500" },
+      { tag: "#MIL-SPEC", border: "border-secondary/35", bar: "bg-secondary", text: "text-secondary", dot: "bg-secondary" },
+    ];
+
+    const CARD_W = 140;
+    const WIN_W = 154;
+    const GAP = 12;
+    const SPIN_MS = 4200;
+    const COUNTDOWN_MS = 3000;
+    let spun = false;
+
+    function randomLetter(exclude) {
+      let L;
+      do {
+        L = GEO_LETTERS[Math.floor(Math.random() * GEO_LETTERS.length)];
+      } while (exclude && L === exclude && GEO_LETTERS.length > 1);
+      return L;
+    }
+
+    function normalCard(letter, tier) {
+      return `<div class="w-[140px] h-[190px] bg-gradient-to-b from-[#162238] to-[#0f1c2c] border ${tier.border} rounded-xl flex flex-col justify-between p-3 shrink-0 shadow-lg relative overflow-hidden" data-letter="${escapeAttr(letter)}">
+        <div class="flex items-center justify-between">
+          <span class="font-mono text-[11px] ${tier.text} font-bold">${tier.tag}</span>
+          <span class="w-2 h-2 rounded-full ${tier.dot}"></span>
+        </div>
+        <div class="flex items-center justify-center my-auto">
+          <span class="text-[58px] font-black text-on-surface leading-none select-none">${escapeHtml(letter)}</span>
+        </div>
+        <div class="w-full h-2 rounded-full ${tier.bar}"></div>
+      </div>`;
+    }
+
+    function winnerCard(letter) {
+      return `<div id="winningCard" class="w-[154px] h-[208px] bg-gradient-to-b from-[#24354f] via-[#1a293d] to-[#0b1726] border-2 border-primary-container rounded-2xl flex flex-col justify-between p-3.5 shrink-0 relative z-20 scale-105 shadow-[0_0_35px_rgba(245,166,35,0.55)]" data-letter="${escapeAttr(letter)}" data-winner="1">
+        <div class="absolute -top-1.5 -right-1.5 w-6 h-6 bg-gradient-to-tr from-primary-container to-primary rounded-full flex items-center justify-center text-on-primary-container shadow-md">
+          <span class="material-symbols-outlined text-[15px]" style="font-variation-settings:'FILL' 1">star</span>
+        </div>
+        <div class="flex items-center justify-between">
+          <span class="font-mono text-[11px] text-primary font-extrabold tracking-wider">★ RARE</span>
+          <span class="px-1.5 py-0.5 rounded bg-primary-container text-on-primary-container font-bold text-[9px] tracking-widest">არჩეულია</span>
+        </div>
+        <div class="flex flex-col items-center justify-center my-auto">
+          <span class="text-[74px] leading-none text-primary font-black drop-shadow-[0_4px_18px_rgba(245,166,35,0.85)]">${escapeHtml(letter)}</span>
+        </div>
+        <div class="w-full flex flex-col gap-1">
+          <div class="w-full h-2.5 rounded-full bg-gradient-to-r from-primary via-secondary to-primary-container"></div>
+          <span class="text-[10px] text-center font-bold text-secondary tracking-widest uppercase">MATCH SELECTED</span>
+        </div>
+      </div>`;
+    }
+
+    function buildTrack(winner) {
+      const LEFT = 18;
+      const RIGHT = 18;
+      const parts = [];
+      for (let i = 0; i < LEFT; i++) {
+        parts.push(normalCard(randomLetter(winner), TIERS[i % TIERS.length]));
+      }
+      parts.push(winnerCard(winner));
+      for (let i = 0; i < RIGHT; i++) {
+        parts.push(normalCard(randomLetter(winner), TIERS[(i + 2) % TIERS.length]));
+      }
+      track.innerHTML = parts.join("");
+      return LEFT; // winner index
+    }
+
+    function winnerOffsetPx(winnerIndex) {
+      // distance from track left edge to center of winner card
+      let x = 16; // px-4 padding
+      for (let i = 0; i < winnerIndex; i++) x += CARD_W + GAP;
+      x += WIN_W / 2;
+      return x;
+    }
+
+    function runSpin(room) {
+      if (spun || !track || !room.letter) return;
+      spun = true;
+      const winner = room.letter;
+      const winnerIndex = buildTrack(winner);
+
+      if (roundBadge) {
+        roundBadge.textContent = "რაუნდი " + room.round_number + " / " + room.max_rounds;
+      }
+      if (catsEl) {
+        catsEl.innerHTML = (room.categories || [])
+          .map((key) => {
+            const meta = CAT[key] || { ka: key, emoji: "✨" };
+            return `<div class="flex flex-col items-center justify-center p-3 rounded-lg bg-surface-container border border-surface-variant/40">
+              <span class="text-xl mb-1">${meta.emoji}</span>
+              <span class="text-xs font-bold">${meta.ka}</span>
+            </div>`;
+          })
+          .join("");
+      }
+
+      if (statusEl) statusEl.textContent = "SPINNING…";
+      if (teaserEl) teaserEl.textContent = "რულეტკა ტრიალებს";
+      if (revealBadge) revealBadge.style.opacity = "0.35";
+      if (revealLetter) revealLetter.textContent = "?";
+      if (revealTitle) revealTitle.textContent = "ასო ირჩევა…";
+      if (revealSub) revealSub.textContent = "დაელოდე რულეტკას";
+      if (countdownSeconds) countdownSeconds.textContent = "იტვირთება…";
+      if (countdownBar) {
+        countdownBar.style.transition = "none";
+        countdownBar.style.width = "100%";
+      }
+      if (glow) {
+        glow.classList.remove("opacity-70");
+        glow.classList.add("opacity-40");
+      }
+
+      // Layout: position track so animation ends with winner under center needle
+      requestAnimationFrame(() => {
+        const viewport = track.parentElement;
+        const viewW = viewport.clientWidth;
+        const endX = viewW / 2 - winnerOffsetPx(winnerIndex);
+        const startX = endX + viewW * 1.35 + Math.random() * 120;
+
+        track.style.transition = "none";
+        track.style.transform = "translateX(" + startX + "px) translateY(-50%)";
+        void track.offsetWidth;
+        track.style.transition = "transform " + SPIN_MS + "ms cubic-bezier(0.1, 0.9, 0.18, 1)";
+        track.style.transform = "translateX(" + endX + "px) translateY(-50%)";
+
+        setTimeout(() => {
+          const winEl = document.getElementById("winningCard");
+          if (winEl) winEl.classList.add("winner-card-pulse");
+          if (glow) {
+            glow.classList.remove("opacity-40");
+            glow.classList.add("opacity-70");
+          }
+          if (iconEl) iconEl.classList.remove("animate-spin");
+          if (statusEl) statusEl.textContent = "LETTER LOCKED";
+          if (teaserEl) teaserEl.textContent = "ასო არჩეულია";
+          if (revealBadge) revealBadge.style.opacity = "1";
+          if (revealLetter) revealLetter.textContent = winner;
+          if (revealTitle) revealTitle.textContent = "არჩეული ასოა: " + winner;
+          if (revealSub) revealSub.textContent = "ყველა სიტყვა იწყება „" + winner + "“-ზე";
+
+          let left = Math.ceil(COUNTDOWN_MS / 1000);
+          if (countdownBar) {
+            countdownBar.style.transition = "width " + COUNTDOWN_MS + "ms linear";
+            countdownBar.style.width = "0%";
+          }
+          if (countdownSeconds) countdownSeconds.textContent = left + "…";
+          const tick = setInterval(() => {
+            left -= 1;
+            if (left > 0) {
+              if (countdownSeconds) countdownSeconds.textContent = left + "…";
+            } else {
+              clearInterval(tick);
+              if (countdownSeconds) countdownSeconds.textContent = "რაუნდი იწყება!";
+              finishLetterSpin(room);
+            }
+          }, 1000);
+        }, SPIN_MS + 40);
+      });
+    }
+
+    client.on("room_state", (room) => {
+      latestRoom = room;
+      updateChrome(room);
+      if (room.state !== "playing") {
+        ensureOnCorrectPage(room);
+        return;
+      }
+      if (!room.letter) return;
+      // Mark that we're handling the spin for this round
+      if (sessionStorage.getItem("qalaqobana_need_spin") !== spinKey(room)) {
+        sessionStorage.setItem("qalaqobana_need_spin", spinKey(room));
+      }
+      runSpin(room);
+    });
+    client.on("error", (err) => toast((err && err.message) || "შეცდომა"));
     client.socket.on("connect", () => client.sync());
     if (client.socket.connected) client.sync();
   }
@@ -702,7 +960,7 @@
       renderResults(room);
       if (!(room.match_over && room.state === "results")) ensureOnCorrectPage(room);
     });
-    client.on("round_started", () => go(PATHS.arena));
+    client.on("round_started", (payload) => beginLetterSpin(payload));
     client.on("verification_complete", () => client.sync());
     client.on("error", (err) => toast((err && err.message) || "შეცდომა"));
     client.socket.on("connect", () => client.sync());
@@ -795,6 +1053,7 @@
 
   if (page === "home") initHome();
   if (page === "lobby") initLobby();
+  if (page === "spin") initSpin();
   if (page === "arena") initArena();
   if (page === "results") initResults();
   if (page === "podium") initPodium();
