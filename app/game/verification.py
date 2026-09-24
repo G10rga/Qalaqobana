@@ -124,60 +124,28 @@ _RIVER_REJECT_RE = re.compile(
 # Common Qalaqobana spellings (ka) → categories they count for.
 # Includes folk/Latin-influenced spellings that differ from ka.wikipedia titles.
 KNOWN_ANSWERS: dict[str, set[str]] = {
-    # Zanzibar — island/archipelago, accepted as country in this game
+    # Folk spellings that differ from ka.wikipedia titles
     "ზანზიბარი": {"country"},
     "ზანზიბარის": {"country"},
-    # Zurich — players often write ზურიხი/ზურიკი; official ka wiki is ციურიხი
     "ზურიხი": {"city"},
     "ზურიკი": {"city"},
     "ციურიხი": {"city"},
-    "ზაგრები": {"city"},  # Zagreb folk spelling
+    "ზაგრები": {"city"},
     "ზაგრებიი": {"city"},
+    "ყატარი": {"country"},
+    "ყატარის": {"country"},
 }
 
-# Optional Latin queries to try when Georgian wiki search misses.
-LATIN_ALIASES: dict[str, list[str]] = {
-    "ზანზიბარი": ["Zanzibar"],
-    "ზურიხი": ["Zurich", "Zürich"],
-    "ზურიკი": ["Zurich", "Zürich"],
-    "ციურიხი": ["Zurich", "Zürich"],
-}
-
-# Rough Mkhedruli → Latin for fallback English Wikipedia search.
-_KA_TO_LATIN = {
-    "ა": "a",
-    "ბ": "b",
-    "გ": "g",
-    "დ": "d",
-    "ე": "e",
-    "ვ": "v",
-    "ზ": "z",
-    "თ": "t",
-    "ი": "i",
-    "კ": "k",
-    "ლ": "l",
-    "მ": "m",
-    "ნ": "n",
-    "ო": "o",
-    "პ": "p",
-    "ჟ": "zh",
-    "რ": "r",
-    "ს": "s",
-    "ტ": "t",
-    "უ": "u",
-    "ფ": "p",
-    "ქ": "k",
-    "ღ": "gh",
-    "ყ": "q",
-    "შ": "sh",
-    "ჩ": "ch",
-    "ც": "ts",
-    "ძ": "dz",
-    "წ": "ts",
-    "ჭ": "ch",
-    "ხ": "kh",
-    "ჯ": "j",
-    "ჰ": "h",
+# Georgian words appended to ka.wikipedia searches
+_KA_SEARCH_BIAS: dict[str, list[str]] = {
+    "country": ["ქვეყანა", "სახელმწიფო"],
+    "city": ["ქალაქი", "დედაქალაქი"],
+    "animal": ["ცხოველი"],
+    "plant": ["მცენარე"],
+    "name": ["სახელი"],
+    "river": ["მდინარე"],
+    "film": ["ფილმი"],
+    "food": ["საჭმელი", "კერძი"],
 }
 
 
@@ -343,108 +311,104 @@ def _river_rejected(raw: str) -> str | None:
 
 
 def _wikipedia_check(answer: str, category: str) -> dict[str, Any]:
-    """Return {found, matched, title_close, reason, source} via Wikipedia search."""
+    """Return {found, matched, title_close, reason, source} via ka.wikipedia only."""
     hints = CATEGORY_HINTS.get(category, [])
     queries = _search_queries(answer, category)
 
     best_found: dict[str, Any] | None = None
 
     for query in queries:
-        for lang in ("ka", "en"):
-            try:
-                hits = _wiki_search(lang, query)
-            except Exception as exc:
-                logger.warning("Wikipedia search failed (%s/%s): %s", lang, query, exc)
+        try:
+            hits = _wiki_search("ka", query)
+        except Exception as exc:
+            logger.warning("Wikipedia search failed (ka/%s): %s", query, exc)
+            continue
+
+        for hit in hits:
+            title = hit.get("title", "") or ""
+            snippet = re.sub(r"<[^>]+>", "", hit.get("snippet", "") or "")
+            local = f"{title} {snippet}".lower()
+            source = f"ka.wikipedia.org:{title}"
+            close = _titles_close(title, answer) or _titles_close(title, query)
+            hints_in_title = any(h.lower() in title.lower() for h in hints)
+            hints_in_local = any(h.lower() in local for h in hints)
+
+            if category == "river" and _river_page_skipped(title):
                 continue
 
-            for hit in hits:
-                title = hit.get("title", "") or ""
-                snippet = re.sub(r"<[^>]+>", "", hit.get("snippet", "") or "")
-                local = f"{title} {snippet}".lower()
-                source = f"{lang}.wikipedia.org:{title}"
-                close = _titles_close(title, answer) or _titles_close(title, query)
-                hints_in_title = any(h.lower() in title.lower() for h in hints)
-                hints_in_local = any(h.lower() in local for h in hints)
+            answer_close = _titles_close(title, answer) or _answer_in_title(
+                answer, title
+            )
 
-                if category == "river" and _river_page_skipped(title):
-                    continue
-
-                answer_close = _titles_close(title, answer) or _answer_in_title(
-                    answer, title
-                )
-
-                # Rivers: only accept when the page is about THIS name as a river.
-                if category == "river":
-                    if answer_close and (hints_in_title or hints_in_local):
-                        return {
-                            "found": True,
-                            "matched": True,
-                            "title_close": True,
-                            "reason": "Wikipedia suggests river",
-                            "source": source,
-                        }
-                    if hints_in_title and _answer_in_title(answer, title):
-                        return {
-                            "found": True,
-                            "matched": True,
-                            "title_close": True,
-                            "reason": "Wikipedia title is a river",
-                            "source": source,
-                        }
-                    if answer_close and best_found is None:
-                        best_found = {
-                            "found": True,
-                            "matched": False,
-                            "title_close": True,
-                            "reason": "Place found but not confirmed as river",
-                            "source": source,
-                        }
-                    continue
-
-                # Strong match: answer ≈ title AND category signal on that page
+            if category == "river":
                 if answer_close and (hints_in_title or hints_in_local):
                     return {
                         "found": True,
                         "matched": True,
                         "title_close": True,
-                        "reason": f"Wikipedia suggests {category}",
+                        "reason": "Wikipedia suggests river",
                         "source": source,
                     }
-
-                # Category word in the title and answer appears in title
                 if hints_in_title and _answer_in_title(answer, title):
                     return {
                         "found": True,
                         "matched": True,
                         "title_close": True,
-                        "reason": f"Wikipedia title is a {category}",
+                        "reason": "Wikipedia title is a river",
                         "source": source,
                     }
-
-                if answer_close or close:
-                    matched = (
-                        category in SOFT_CATEGORIES or category in GEO_TITLE_CATEGORIES
-                    )
-                    result = {
-                        "found": True,
-                        "matched": matched,
-                        "title_close": bool(answer_close),
-                        "reason": "Near Wikipedia title",
-                        "source": source,
-                    }
-                    if matched and answer_close:
-                        return result
-                    best_found = best_found or result
-                    continue
-
-                if best_found is None:
+                if answer_close and best_found is None:
                     best_found = {
                         "found": True,
                         "matched": False,
-                        "title_close": False,
-                        "reason": "Wikipedia hit without category confirmation",
+                        "title_close": True,
+                        "reason": "Place found but not confirmed as river",
                         "source": source,
                     }
+                continue
+
+            if answer_close and (hints_in_title or hints_in_local):
+                return {
+                    "found": True,
+                    "matched": True,
+                    "title_close": True,
+                    "reason": f"Wikipedia suggests {category}",
+                    "source": source,
+                }
+
+            if hints_in_title and _answer_in_title(answer, title):
+                return {
+                    "found": True,
+                    "matched": True,
+                    "title_close": True,
+                    "reason": f"Wikipedia title is a {category}",
+                    "source": source,
+                }
+
+            if answer_close or close:
+                matched = (
+                    category in SOFT_CATEGORIES or category in GEO_TITLE_CATEGORIES
+                )
+                result = {
+                    "found": True,
+                    "matched": matched,
+                    "title_close": bool(answer_close),
+                    "reason": "Near Wikipedia title",
+                    "source": source,
+                }
+                if matched and answer_close:
+                    return result
+                best_found = best_found or result
+                continue
+
+            if best_found is None:
+                best_found = {
+                    "found": True,
+                    "matched": False,
+                    "title_close": False,
+                    "reason": "Wikipedia hit without category confirmation",
+                    "source": source,
+                }
 
     return best_found or {
         "found": False,
@@ -479,36 +443,22 @@ def _answer_in_title(answer: str, title: str) -> bool:
 
 
 def _search_queries(answer: str, category: str = "") -> list[str]:
-    """Georgian answer, category-biased queries, Latin aliases, transliteration."""
-    queries: list[str] = []
+    """Georgian-only search queries for ka.wikipedia."""
+    queries: list[str] = [answer]
+    for bias in _KA_SEARCH_BIAS.get(category, []):
+        queries.append(f"{answer} {bias}")
+        queries.append(f"{bias} {answer}")
     if category == "river":
-        queries.extend([f"{answer} მდინარე", f"მდინარე {answer}", f"{answer} river"])
-    queries.append(answer)
-    key = normalize_for_compare(answer)
-    for alias in LATIN_ALIASES.get(key, []):
-        if alias not in queries:
-            queries.append(alias)
-            if category == "river":
-                queries.append(f"{alias} River")
-    latin = _transliterate(answer)
-    if latin and latin.casefold() not in {q.casefold() for q in queries}:
-        queries.append(latin)
-    # Deduplicate preserving order
+        queries.extend([f"{answer} მდინარე", f"მდინარე {answer}"])
+
     seen: set[str] = set()
     out: list[str] = []
     for q in queries:
-        k = q.casefold()
-        if k not in seen:
+        k = normalize_for_compare(q)
+        if k and k not in seen:
             seen.add(k)
             out.append(q)
     return out
-
-
-def _transliterate(text: str) -> str:
-    out: list[str] = []
-    for ch in text:
-        out.append(_KA_TO_LATIN.get(ch, ch if ch.isascii() else ""))
-    return "".join(out).strip()
 
 
 def _titles_close(title: str, answer: str) -> bool:
@@ -518,15 +468,10 @@ def _titles_close(title: str, answer: str) -> bool:
         return False
     if a == t:
         return True
-    # Drop parenthetical disambiguation: "Zanzibar (island)"
+    # Drop parenthetical disambiguation
     t_main = re.sub(r"\s*\([^)]*\)\s*", "", t).strip()
     if a == t_main or a in t_main or t_main in a:
         return True
-    # Allow 1-char folk spelling drift for longer words (ზურიხი vs ციურიხი won't match —
-    # those rely on lexicon / Latin aliases instead)
-    if len(a) >= 5 and len(t_main) >= 5 and abs(len(a) - len(t_main)) <= 2:
-        # shared prefix of 3+ after first letter differences is weak; skip fuzzy for now
-        pass
     return False
 
 
