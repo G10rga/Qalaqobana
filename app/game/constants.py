@@ -41,15 +41,18 @@ SCORE_SAME_WORD = 5
 SCORE_UNIQUE_WORD = 10
 SCORE_ONLY_ANSWER = 15
 
+# After someone presses STOP, others get this many seconds to finish
+STOP_GRACE_SECONDS = 8
+
 ROOM_CODE_LENGTH = 5
 MAX_PLAYERS = 8
 MIN_PLAYERS_TO_START = 1  # allow solo testing; raise to 2 for production feel
 MAX_ANSWER_LENGTH = 80
 PLAYER_NAME_MAX = 24
 DEFAULT_MAX_ROUNDS = 5
-DEFAULT_ROUND_SECONDS = 60
+DEFAULT_ROUND_SECONDS = 60  # unused (no timer); kept for older clients
 ALLOWED_MAX_ROUNDS = (3, 5, 7)
-ALLOWED_ROUND_SECONDS = (60, 90, 120)
+ALLOWED_ROUND_SECONDS = (60, 90, 120)  # unused; kept for API compat
 
 # Room lifecycle
 STATE_LOBBY = "lobby"

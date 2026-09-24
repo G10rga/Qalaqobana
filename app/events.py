@@ -182,39 +182,61 @@ def on_update_answers(data: dict[str, Any]):
 @socketio.on("stop_round")
 @_safe
 def on_stop_round(data: dict[str, Any]):
+    from flask import current_app
+
+    from app.game.constants import STOP_GRACE_SECONDS
+
     code = str(data.get("code", ""))
     player_id = str(data.get("player_id", ""))
     room = game.stop_round(code, player_id)
+    stopper = room.players.get(player_id)
+    app = current_app._get_current_object()
     socketio.emit(
-        "round_stopped",
+        "stop_called",
         {
             "stopped_by": player_id,
+            "stopped_by_name": stopper.name if stopper else "",
+            "grace_seconds": STOP_GRACE_SECONDS,
+            "grace_ends_at": room.grace_ends_at,
             "room": room.public_state(None),
         },
         to=room.code,
     )
     _broadcast_room(room.code)
 
-    def _verify():
+    def _after_grace():
         try:
-            finished = game.run_verification(room.code)
-            socketio.emit(
-                "verification_complete",
-                {
-                    "room": finished.public_state(None),
-                },
-                to=finished.code,
-            )
-            _broadcast_room(finished.code)
+            socketio.sleep(STOP_GRACE_SECONDS)
+            with app.app_context():
+                locked = game.finalize_stop(code)
+                if locked.state != "verifying":
+                    return
+                socketio.emit(
+                    "round_stopped",
+                    {
+                        "stopped_by": locked.stopped_by,
+                        "room": locked.public_state(None),
+                    },
+                    to=locked.code,
+                )
+                _broadcast_room(locked.code)
+
+                finished = game.run_verification(locked.code)
+                socketio.emit(
+                    "verification_complete",
+                    {"room": finished.public_state(None)},
+                    to=finished.code,
+                )
+                _broadcast_room(finished.code)
         except Exception:
-            logger.exception("Background verification failed")
+            logger.exception("Background stop/verification failed")
             socketio.emit(
                 "error",
                 {"message": "Verification failed", "code": "verify_failed"},
-                to=room.code,
+                to=code,
             )
 
-    socketio.start_background_task(_verify)
+    socketio.start_background_task(_after_grace)
 
 
 @socketio.on("next_round")
