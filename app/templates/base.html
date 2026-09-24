@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html class="dark" lang="ka">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>{% block title %}ქალაქობანა{% endblock %}</title>
+  <link href="https://fonts.googleapis.com" rel="preconnect"/>
+  <link crossorigin href="https://fonts.gstatic.com" rel="preconnect"/>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {darkMode:"class", theme:{extend:{
+      colors:{
+        "background":"#061423","on-surface":"#d6e4f9","on-surface-variant":"#d7c3ae",
+        "primary":"#ffc880","primary-container":"#f5a623","on-primary-container":"#644000","on-primary":"#452b00",
+        "secondary":"#48f1e5","secondary-container":"#03d4c8","on-secondary":"#003733","on-secondary-container":"#005751",
+        "surface-container":"#132030","surface-container-low":"#0f1c2c","surface-container-high":"#1e2b3b",
+        "surface-container-highest":"#283646","surface-container-lowest":"#020f1e","surface-variant":"#283646",
+        "error":"#ffb4ab","error-container":"#93000a","tertiary":"#ffc3c1"
+      },
+      fontFamily:{sans:["Plus Jakarta Sans","sans-serif"]}
+    }}}
+  </script>
+  <style>body{font-family:"Plus Jakarta Sans",sans-serif} ::-webkit-scrollbar{display:none}</style>
+  {% block head %}{% endblock %}
+</head>
+<body class="bg-background text-on-surface antialiased min-h-screen" data-page="{{ page|default('') }}">
+  <header class="sticky top-0 z-40 bg-surface-container-lowest/90 backdrop-blur-xl border-b border-surface-variant/40">
+    <div class="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between gap-3">
+      <a href="{{ url_for('main.home') }}" class="font-extrabold text-primary text-lg tracking-wide">ქალაქობანა</a>
+      {% if room is defined and room %}
+      <div class="text-secondary font-mono text-sm tracking-widest">#{{ room.code }}</div>
+      {% endif %}
+      <form method="post" action="{{ url_for('main.leave') }}">
+        <button type="submit" class="text-on-surface-variant hover:text-on-surface text-sm">გასვლა</button>
+      </form>
+    </div>
+  </header>
+  <main class="max-w-5xl mx-auto px-4 py-8">
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}
+        <div class="mb-4 p-3 rounded-lg bg-error-container/40 text-error text-sm">{{ messages[0] }}</div>
+      {% endif %}
+    {% endwith %}
+    {% block content %}{% endblock %}
+  </main>
+  {% if room is defined and room %}
+  <script type="application/json" id="boot">{{ room|tojson }}</script>
+  {% endif %}
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js" crossorigin="anonymous"></script>
+  <script src="{{ url_for('static', filename='js/live.js') }}"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>
