@@ -2,6 +2,7 @@
 
 import logging
 import os
+from pathlib import Path
 
 from dotenv import load_dotenv
 from flask import Flask
@@ -17,10 +18,25 @@ logging.basicConfig(
 # threading works reliably on Windows; eventlet optional later for scale
 socketio = SocketIO(cors_allowed_origins="*", async_mode="threading")
 
+ROOT = Path(__file__).resolve().parents[1]
+DEFAULT_DB = ROOT / "data" / "qalaqobana.db"
+
 
 def create_app() -> Flask:
     app = Flask(__name__, static_folder="static", template_folder="templates")
     app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", "dev-secret-change-me")
+
+    db_path = Path(os.getenv("DATABASE_PATH", str(DEFAULT_DB))).resolve()
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+    app.config["SQLALCHEMY_DATABASE_URI"] = f"sqlite:///{db_path.as_posix()}"
+    app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+
+    from app.extensions import db
+
+    db.init_app(app)
+
+    # Register models so create_all() sees them (avoid `import app.models` — shadows Flask `app`)
+    from app import models as _models  # noqa: F401
 
     from app.routes.api import api_bp
     from app.routes.main import main_bp
@@ -29,6 +45,14 @@ def create_app() -> Flask:
     app.register_blueprint(api_bp)
 
     from app import events  # noqa: F401 — registers Socket.IO handlers
+
+    with app.app_context():
+        try:
+            from app.game import lexicon
+
+            lexicon.ensure_lexicon()
+        except Exception:
+            logging.getLogger(__name__).exception("Lexicon bootstrap failed")
 
     socketio.init_app(app)
     return app

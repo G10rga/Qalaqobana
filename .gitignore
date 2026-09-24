@@ -35,4 +35,5 @@ instance/
 .flaskenv
 celerybeat-schedule
 *.db
+*.sqlite
 *.sqlite3
