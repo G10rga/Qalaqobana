@@ -1025,8 +1025,23 @@
       if (!(room.match_over && room.state === "results")) ensureOnCorrectPage(room);
     });
     client.on("round_started", (payload) => beginLetterSpin(payload));
-    client.on("verification_complete", () => client.sync());
+    client.on("verification_complete", (payload) => {
+      if (payload && payload.room) {
+        latestRoom = payload.room;
+        // personalize "you" from session if broadcast lacked it
+        const sess = client.loadSession();
+        if (sess.playerId && !latestRoom.you) latestRoom.you = sess.playerId;
+        renderResults(latestRoom);
+      }
+      client.sync();
+    });
     client.on("error", (err) => toast((err && err.message) || "შეცდომა"));
+    // Safety poll while stuck verifying (e.g. missed socket event)
+    const verifyPoll = setInterval(() => {
+      if (!latestRoom || latestRoom.state !== "verifying") return;
+      client.sync();
+    }, 2000);
+    client.socket.on("disconnect", () => clearInterval(verifyPoll));
     client.socket.on("connect", () => client.sync());
     if (client.socket.connected) client.sync();
   }

@@ -30,6 +30,7 @@ from app.game.constants import (
     STATE_PLAYING,
     STATE_RESULTS,
     STATE_VERIFYING,
+    STOP_GRACE_SECONDS,
 )
 from app.game.models import Player, Room
 from app.game.normalize import normalize_answer
@@ -254,6 +255,7 @@ def start_round(room_code: str, player_id: str) -> Room:
     room.round_points = {}
     room.round_totals = {}
     room.stopped_by = None
+    room.grace_ends_at = None
     room.verification_done = False
     store.save_room(room)
     return room
@@ -283,16 +285,32 @@ def update_answers(
 
 
 def stop_round(room_code: str, player_id: str) -> Room:
+    """First STOP starts a short grace window; answers stay open until finalize_stop."""
     room = _require_room(room_code)
     if room.state != STATE_PLAYING:
         raise GameError("Nothing to stop", "bad_state")
     if player_id not in room.players:
         raise GameError("Not in this room", "not_member")
+    if room.stopped_by:
+        raise GameError("Stop already called", "already_stopped")
+
+    room.stopped_by = player_id
+    room.grace_ends_at = time.time() + STOP_GRACE_SECONDS
+    store.save_room(room)
+    return room
+
+
+def finalize_stop(room_code: str) -> Room:
+    """End the grace window and lock answers for verification."""
+    room = _require_room(room_code)
+    if room.state != STATE_PLAYING:
+        return room
+    if not room.stopped_by:
+        return room
 
     room.state = STATE_VERIFYING
-    room.stopped_by = player_id
     room.verification_done = False
-    # Ensure every connected player has an answers dict
+    room.grace_ends_at = None
     for pid, player in room.players.items():
         if player.connected and pid not in room.answers:
             room.answers[pid] = {}

@@ -142,6 +142,8 @@ def update_answers(code: str):
 
 @api_bp.post("/rooms/<code>/stop")
 def stop_round(code: str):
+    from app.game.constants import STOP_GRACE_SECONDS
+
     data = request.get_json(silent=True) or {}
     player_id = str(data.get("player_id", ""))
     try:
@@ -149,19 +151,36 @@ def stop_round(code: str):
     except GameError as exc:
         return _err(exc)
 
+    stopper = room.players.get(player_id)
     socketio.emit(
-        "round_stopped",
-        {"stopped_by": player_id},
+        "stop_called",
+        {
+            "stopped_by": player_id,
+            "stopped_by_name": stopper.name if stopper else "",
+            "grace_seconds": STOP_GRACE_SECONDS,
+            "grace_ends_at": room.grace_ends_at,
+            "room": room.public_state(None),
+        },
         to=room.code,
     )
     _notify(room.code)
 
-    def _verify():
-        finished = game.run_verification(room.code)
+    def _after_grace():
+        socketio.sleep(STOP_GRACE_SECONDS)
+        locked = game.finalize_stop(code)
+        if locked.state != "verifying":
+            return
+        socketio.emit(
+            "round_stopped",
+            {"stopped_by": locked.stopped_by, "room": locked.public_state(None)},
+            to=locked.code,
+        )
+        _notify(locked.code)
+        finished = game.run_verification(locked.code)
         socketio.emit("verification_complete", {"ok": True}, to=finished.code)
         _notify(finished.code)
 
-    socketio.start_background_task(_verify)
+    socketio.start_background_task(_after_grace)
     return jsonify({"ok": True, "room": room.public_state(player_id)})
 
 
