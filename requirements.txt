@@ -4,6 +4,6 @@ Flask-SocketIO>=5.3,<6
 python-socketio>=5.11,<6
 python-engineio>=4.14.0,<5
 python-dotenv>=1.0,<2
-requests>=2.31,<3
+requests>=2.34.2,<3
 gunicorn>=21.0,<22
 psycopg[binary]>=3.1,<4
