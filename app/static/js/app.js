@@ -529,7 +529,7 @@
     const CARD_W = 140;
     const WIN_W = 154;
     const GAP = 12;
-    const SPIN_MS = 4200;
+    const SPIN_MS = 8000;
     const COUNTDOWN_MS = 3000;
     let spun = false;
 
