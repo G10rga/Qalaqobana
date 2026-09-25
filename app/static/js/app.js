@@ -519,11 +519,11 @@
     const catsEl = document.getElementById("spin-categories");
 
     const TIERS = [
-      { tag: "#MIL-SPEC", border: "border-blue-500/35", bar: "bg-blue-500", text: "text-blue-400", dot: "bg-blue-500" },
-      { tag: "#RESTRICTED", border: "border-purple-500/35", bar: "bg-purple-500", text: "text-purple-400", dot: "bg-purple-500" },
-      { tag: "#CLASSIFIED", border: "border-pink-500/35", bar: "bg-pink-500", text: "text-pink-400", dot: "bg-pink-500" },
-      { tag: "#COVERT", border: "border-red-500/35", bar: "bg-red-500", text: "text-red-400", dot: "bg-red-500" },
-      { tag: "#MIL-SPEC", border: "border-secondary/35", bar: "bg-secondary", text: "text-secondary", dot: "bg-secondary" },
+      { tag: "#MIL-SPEC", border: "border-blue-500/40", bar: "bg-blue-500", text: "text-blue-700", dot: "bg-blue-500" },
+      { tag: "#RESTRICTED", border: "border-purple-500/40", bar: "bg-purple-500", text: "text-purple-700", dot: "bg-purple-500" },
+      { tag: "#CLASSIFIED", border: "border-pink-500/40", bar: "bg-pink-500", text: "text-pink-700", dot: "bg-pink-500" },
+      { tag: "#COVERT", border: "border-red-500/40", bar: "bg-red-500", text: "text-red-700", dot: "bg-red-500" },
+      { tag: "#MIL-SPEC", border: "border-secondary/40", bar: "bg-secondary", text: "text-secondary", dot: "bg-secondary" },
     ];
 
     const CARD_W = 140;
@@ -542,20 +542,20 @@
     }
 
     function normalCard(letter, tier) {
-      return `<div class="w-[140px] h-[190px] bg-gradient-to-b from-[#162238] to-[#0f1c2c] border ${tier.border} rounded-xl flex flex-col justify-between p-3 shrink-0 shadow-lg relative overflow-hidden" data-letter="${escapeAttr(letter)}">
+      return `<div class="w-[140px] h-[190px] bg-gradient-to-b from-white to-surface-container border ${tier.border} rounded-xl flex flex-col justify-between p-3 shrink-0 shadow-md relative overflow-hidden" data-letter="${escapeAttr(letter)}">
         <div class="flex items-center justify-between">
           <span class="font-mono text-[11px] ${tier.text} font-bold">${tier.tag}</span>
           <span class="w-2 h-2 rounded-full ${tier.dot}"></span>
         </div>
         <div class="flex items-center justify-center my-auto">
-          <span class="text-[58px] font-black text-on-surface leading-none select-none">${escapeHtml(letter)}</span>
+          <span class="text-[58px] font-black text-[#1c1c17] leading-none select-none">${escapeHtml(letter)}</span>
         </div>
         <div class="w-full h-2 rounded-full ${tier.bar}"></div>
       </div>`;
     }
 
     function winnerCard(letter) {
-      return `<div id="winningCard" class="w-[154px] h-[208px] bg-gradient-to-b from-[#24354f] via-[#1a293d] to-[#0b1726] border-2 border-primary-container rounded-2xl flex flex-col justify-between p-3.5 shrink-0 relative z-20 scale-105 shadow-[0_0_35px_rgba(245,166,35,0.55)]" data-letter="${escapeAttr(letter)}" data-winner="1">
+      return `<div id="winningCard" class="w-[154px] h-[208px] bg-gradient-to-b from-primary-container/35 via-white to-surface-container-low border-2 border-primary-container rounded-2xl flex flex-col justify-between p-3.5 shrink-0 relative z-20 scale-105 shadow-[0_0_28px_rgba(176,45,33,0.35)]" data-letter="${escapeAttr(letter)}" data-winner="1">
         <div class="absolute -top-1.5 -right-1.5 w-6 h-6 bg-gradient-to-tr from-primary-container to-primary rounded-full flex items-center justify-center text-on-primary-container shadow-md">
           <span class="material-symbols-outlined text-[15px]" style="font-variation-settings:'FILL' 1">star</span>
         </div>
@@ -564,7 +564,7 @@
           <span class="px-1.5 py-0.5 rounded bg-primary-container text-on-primary-container font-bold text-[9px] tracking-widest">არჩეულია</span>
         </div>
         <div class="flex flex-col items-center justify-center my-auto">
-          <span class="text-[74px] leading-none text-primary font-black drop-shadow-[0_4px_18px_rgba(245,166,35,0.85)]">${escapeHtml(letter)}</span>
+          <span class="text-[74px] leading-none text-primary font-black drop-shadow-[0_2px_8px_rgba(176,45,33,0.35)]">${escapeHtml(letter)}</span>
         </div>
         <div class="w-full flex flex-col gap-1">
           <div class="w-full h-2.5 rounded-full bg-gradient-to-r from-primary via-secondary to-primary-container"></div>
