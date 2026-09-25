@@ -15,7 +15,6 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
 )
 
-# threading: works on Windows + small Linux deploys behind nginx
 _cors = os.getenv("CORS_ORIGINS", "*")
 _cors_origins = [o.strip() for o in _cors.split(",") if o.strip()] if _cors != "*" else "*"
 socketio = SocketIO(
@@ -24,29 +23,47 @@ socketio = SocketIO(
 )
 
 ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_DB = ROOT / "data" / "qalaqobana.db"
+
+
+def _database_uri() -> str:
+    """PostgreSQL via DATABASE_URL. Optional sqlite only if ALLOW_SQLITE=1 (local/tests)."""
+    url = (os.getenv("DATABASE_URL") or "").strip()
+    if not url:
+        if os.getenv("ALLOW_SQLITE", "0") == "1":
+            path = ROOT / "data" / "qalaqobana.db"
+            path.parent.mkdir(parents=True, exist_ok=True)
+            return f"sqlite:///{path.as_posix()}"
+        raise RuntimeError(
+            "DATABASE_URL is not set. Example: "
+            "postgresql+psycopg://qalaqobana:PASSWORD@127.0.0.1:5432/qalaqobana"
+        )
+    if url.startswith("postgres://"):
+        url = "postgresql+psycopg://" + url[len("postgres://") :]
+    elif url.startswith("postgresql://") and "+psycopg" not in url:
+        url = "postgresql+psycopg://" + url[len("postgresql://") :]
+    return url
 
 
 def create_app() -> Flask:
     app = Flask(__name__, static_folder="static", template_folder="templates")
     app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", "dev-secret-change-me")
 
-    # Trust Cloudflare / nginx proxy headers
     if os.getenv("BEHIND_PROXY", "0") == "1":
         from werkzeug.middleware.proxy_fix import ProxyFix
 
         app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
 
-    db_path = Path(os.getenv("DATABASE_PATH", str(DEFAULT_DB))).resolve()
-    db_path.parent.mkdir(parents=True, exist_ok=True)
-    app.config["SQLALCHEMY_DATABASE_URI"] = f"sqlite:///{db_path.as_posix()}"
+    app.config["SQLALCHEMY_DATABASE_URI"] = _database_uri()
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+    app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
+        "pool_pre_ping": True,
+        "pool_size": int(os.getenv("DB_POOL_SIZE", "5")),
+    }
 
     from app.extensions import db
 
     db.init_app(app)
 
-    # Register models so create_all() sees them (avoid `import app.models` — shadows Flask `app`)
     from app import models as _models  # noqa: F401
 
     from app.routes.api import api_bp
@@ -55,7 +72,7 @@ def create_app() -> Flask:
     app.register_blueprint(main_bp)
     app.register_blueprint(api_bp)
 
-    from app import events  # noqa: F401 — registers Socket.IO handlers
+    from app import events  # noqa: F401
 
     with app.app_context():
         try:

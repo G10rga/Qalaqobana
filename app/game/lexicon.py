@@ -1,10 +1,10 @@
-"""Lexicon service — words live in data/qalaqobana.db via the Word model."""
+"""Lexicon service — words live in PostgreSQL; CSV is the import seed."""
 
 from __future__ import annotations
 
 import csv
 import logging
-import sqlite3
+import os
 from pathlib import Path
 
 from flask import current_app, has_app_context
@@ -16,8 +16,11 @@ from app.models import Word
 logger = logging.getLogger(__name__)
 
 ROOT = Path(__file__).resolve().parents[2]
-CSV_PATH = ROOT / "qalaqobana_words.csv"
-DEFAULT_DB_PATH = ROOT / "data" / "qalaqobana.db"
+# Prefer data/qalaqobana_words.csv; fall back to project-root CSV
+CSV_CANDIDATES = (
+    ROOT / "data" / "qalaqobana_words.csv",
+    ROOT / "qalaqobana_words.csv",
+)
 
 CATEGORY_MAP = {
     "city": "city",
@@ -50,46 +53,68 @@ def _map_category(en: str, geo: str) -> str | None:
     return None
 
 
-def db_path() -> Path:
+def csv_path() -> Path | None:
+    override = (os.getenv("LEXICON_CSV") or "").strip()
+    if override:
+        p = Path(override)
+        return p if p.exists() else None
+    for p in CSV_CANDIDATES:
+        if p.exists():
+            return p
+    return None
+
+
+def _dsn() -> str:
+    """libpq DSN for raw psycopg (background-thread safe lookups)."""
     if has_app_context():
         uri = current_app.config.get("SQLALCHEMY_DATABASE_URI", "")
-        if uri.startswith("sqlite:///"):
-            return Path(uri.removeprefix("sqlite:///"))
-    return DEFAULT_DB_PATH
+    else:
+        uri = (os.getenv("DATABASE_URL") or "").strip()
+    # Strip SQLAlchemy driver prefix for psycopg.connect()
+    for prefix in ("postgresql+psycopg://", "postgresql://", "postgres://"):
+        if uri.startswith(prefix):
+            return "postgresql://" + uri[len(prefix) :]
+    return uri
 
 
 def ensure_lexicon() -> None:
     """Create tables; seed from CSV only when the words table is empty."""
     db.create_all()
     count = Word.query.count()
+    seed = csv_path()
     if count == 0:
-        if CSV_PATH.exists():
-            logger.info("Word DB empty — importing from %s", CSV_PATH.name)
+        if seed:
+            logger.info("Word table empty — importing from %s", seed)
             import_from_csv()
         else:
             logger.warning(
-                "Word DB empty and CSV missing (%s). Scoring will reject all words.",
-                CSV_PATH,
+                "Word table empty and CSV missing (tried %s). "
+                "Scoring will reject all words until you import.",
+                ", ".join(str(p) for p in CSV_CANDIDATES),
             )
     else:
-        logger.info("Word DB ready: %s words at %s", count, db_path())
+        logger.info("PostgreSQL lexicon ready: %s words", count)
 
 
 def import_from_csv(*, force: bool = False) -> int:
     """
-    Load CSV rows into the Word table (qalaqobana.db).
+    Load CSV rows into PostgreSQL `words` table.
 
     force=False: refuse if words already exist.
     force=True: wipe the table and re-import.
     """
-    if not CSV_PATH.exists():
-        raise FileNotFoundError(f"CSV not found: {CSV_PATH}")
+    seed = csv_path()
+    if not seed:
+        raise FileNotFoundError(
+            "CSV not found. Place it at data/qalaqobana_words.csv "
+            "or set LEXICON_CSV=/path/to/file.csv"
+        )
 
     db.create_all()
     existing = Word.query.count()
     if existing and not force:
         raise RuntimeError(
-            f"Word DB already has {existing} words. "
+            f"PostgreSQL already has {existing} words. "
             "Pass force=True to wipe and re-import from CSV."
         )
 
@@ -102,7 +127,7 @@ def import_from_csv(*, force: bool = False) -> int:
     seen: set[tuple[str, str]] = set()
     batch: list[Word] = []
 
-    with open(CSV_PATH, encoding="utf-8-sig", newline="") as fh:
+    with open(seed, encoding="utf-8-sig", newline="") as fh:
         reader = csv.DictReader(fh)
         for row in reader:
             word = (row.get("word") or "").strip()
@@ -148,8 +173,8 @@ def import_from_csv(*, force: bool = False) -> int:
 
     count = Word.query.count()
     logger.info(
-        "Imported into %s: %s words stored (%s inserted, %s skipped)",
-        db_path(),
+        "Imported into PostgreSQL from %s: %s words (%s inserted, %s skipped)",
+        seed.name,
         count,
         inserted,
         skipped,
@@ -158,44 +183,68 @@ def import_from_csv(*, force: bool = False) -> int:
 
 
 def lookup(word: str, category: str) -> bool:
-    """True if normalized word exists for category in qalaqobana.db.
-
-    Uses raw sqlite so it works from Socket.IO background threads
-    (no Flask app context required).
-    """
+    """True if normalized word exists for category in the database."""
     norm = normalize_for_compare(word)
     if not norm or not category:
         return False
-    path = db_path()
-    if not path.exists():
+
+    if has_app_context():
+        return (
+            Word.query.filter_by(normalized=norm, category=category).limit(1).first()
+            is not None
+        )
+
+    # Background threads without Flask context
+    uri = (os.getenv("DATABASE_URL") or "").strip()
+    if uri.startswith("sqlite:///"):
+        import sqlite3
+
+        path = uri.removeprefix("sqlite:///")
+        conn = sqlite3.connect(path, timeout=5)
+        try:
+            row = conn.execute(
+                "SELECT 1 FROM words WHERE normalized = ? AND category = ? LIMIT 1",
+                (norm, category),
+            ).fetchone()
+            return row is not None
+        finally:
+            conn.close()
+
+    import psycopg
+
+    dsn = _dsn()
+    if not dsn:
         return False
-    conn = sqlite3.connect(str(path), timeout=5)
-    try:
-        row = conn.execute(
-            "SELECT 1 FROM words WHERE normalized = ? AND category = ? LIMIT 1",
-            (norm, category),
-        ).fetchone()
-        return row is not None
-    finally:
-        conn.close()
+    with psycopg.connect(dsn) as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT 1 FROM words WHERE normalized = %s AND category = %s LIMIT 1",
+                (norm, category),
+            )
+            return cur.fetchone() is not None
 
 
 def stats() -> dict[str, int]:
-    path = db_path()
-    if not path.exists():
+    if has_app_context():
+        total = Word.query.count()
+        rows = (
+            db.session.query(Word.category, db.func.count(Word.id))
+            .group_by(Word.category)
+            .all()
+        )
+        return {"total": total, **{cat: n for cat, n in rows}}
+
+    import psycopg
+
+    dsn = _dsn()
+    if not dsn:
         return {"total": 0}
-    conn = sqlite3.connect(str(path), timeout=5)
-    try:
-        total = conn.execute("SELECT COUNT(*) FROM words").fetchone()[0]
-        by_cat = {
-            cat: n
-            for cat, n in conn.execute(
-                "SELECT category, COUNT(*) FROM words GROUP BY category"
-            )
-        }
-        return {"total": int(total), **by_cat}
-    finally:
-        conn.close()
+    with psycopg.connect(dsn) as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT COUNT(*) FROM words")
+            total = int(cur.fetchone()[0])
+            cur.execute("SELECT category, COUNT(*) FROM words GROUP BY category")
+            return {"total": total, **{cat: n for cat, n in cur.fetchall()}}
 
 
 if __name__ == "__main__":
@@ -205,4 +254,4 @@ if __name__ == "__main__":
     application = create_app()
     with application.app_context():
         n = import_from_csv(force=True)
-        print(f"OK — {n} words in {db_path()}")
+        print(f"OK — {n} words in PostgreSQL")

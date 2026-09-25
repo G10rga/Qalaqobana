@@ -1,4 +1,4 @@
-"""SQLAlchemy models — lexicon / dictionary words live in qalaqobana.db."""
+"""SQLAlchemy models — lexicon words stored in PostgreSQL."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ from app.extensions import db
 
 
 class Word(db.Model):
-    """One accepted game answer for a category (from the word CSV)."""
+    """One accepted game answer for a category (seeded from CSV)."""
 
     __tablename__ = "words"
     __table_args__ = (

@@ -6,4 +6,4 @@ python-engineio>=4.9,<5
 python-dotenv>=1.0,<2
 requests>=2.31,<3
 gunicorn>=21.0,<22
-
+psycopg[binary]>=3.1,<4

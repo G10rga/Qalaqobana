@@ -1,77 +1,70 @@
 # Deploy Qalaqobana → https://qalaqobana.g1orga.dev
 
-App listens on **127.0.0.1:5017** (unused local port). Nginx on 80/443 + Cloudflare handle the public side.
+App on **127.0.0.1:5017**. Words live in **PostgreSQL** (not a `.db` file). CSV at `data/qalaqobana_words.csv` is only the import seed.
 
 ## 1. Cloudflare DNS
 
-In Cloudflare → **g1orga.dev** → DNS:
-
 | Type | Name | Content | Proxy |
 |------|------|---------|-------|
-| A | `qalaqobana` | your Ubuntu server IPv4 | Proxied (orange) |
+| A | `qalaqobana` | your Ubuntu server IPv4 | Proxied |
 
-SSL/TLS mode:
+SSL/TLS: **Flexible** first, or **Full (strict)** after certbot. WebSockets: On.
 
-- **Flexible** — works immediately with the included HTTP nginx config
-- **Full (strict)** — better; run certbot on the server after DNS is live
-
-Network → ensure **WebSockets** is On (default).
-
-## 2. Copy the project to the server
+## 2. Get the code on the server
 
 ```bash
-# from your PC (example)
-scp -r C:\Users\user\Qalaqobana user@YOUR_SERVER_IP:/tmp/qalaqobana-src
-
-# on the server
 sudo mkdir -p /var/www/qalaqobana
-sudo rsync -a /tmp/qalaqobana-src/ /var/www/qalaqobana/
-# keep the word CSV + you can omit .venv
-sudo rm -rf /var/www/qalaqobana/.venv
+sudo git clone https://github.com/G10rga/Qalaqobana.git /var/www/qalaqobana
+# or: git pull inside that folder later
 ```
 
-Or `git clone` into `/var/www/qalaqobana` if the repo is on GitHub.
+Put the word list here (git or upload):
 
-## 3. One-shot install
+```text
+/var/www/qalaqobana/data/qalaqobana_words.csv
+```
+
+## 3. Install (Postgres + nginx + systemd)
 
 ```bash
 cd /var/www/qalaqobana
 sudo bash deploy/setup.sh
 ```
 
-This installs nginx, creates a venv, writes `.env`, enables **systemd** `qalaqobana`, and configures nginx for `qalaqobana.g1orga.dev`.
+Creates DB user/database, writes `DATABASE_URL` into `.env`, imports the CSV into Postgres, starts the app.
 
-## 4. (Optional) HTTPS on origin — Full (strict)
+### Re-import CSV later
+
+```bash
+cd /var/www/qalaqobana
+# after updating data/qalaqobana_words.csv
+sudo -u www-data .venv/bin/python -m app.game.lexicon
+sudo systemctl restart qalaqobana
+```
+
+## 4. Optional origin HTTPS
 
 ```bash
 sudo apt install -y certbot python3-certbot-nginx
 sudo certbot --nginx -d qalaqobana.g1orga.dev
 ```
 
-Then set Cloudflare SSL/TLS to **Full (strict)**.
-
-## 5. Checks
-
-```bash
-curl -I http://127.0.0.1:5017/
-sudo journalctl -u qalaqobana -f
-sudo nginx -t && sudo systemctl reload nginx
-```
-
-Open https://qalaqobana.g1orga.dev
-
-## Update later
-
-```bash
-cd /var/www/qalaqobana
-# pull / rsync new files
-sudo -u www-data /var/www/qalaqobana/.venv/bin/pip install -r requirements.txt
-sudo systemctl restart qalaqobana
-```
+Cloudflare SSL → **Full (strict)**.
 
 ## Ports
 
 | What | Port |
 |------|------|
-| Public HTTP/HTTPS (nginx / Cloudflare) | 80 / 443 |
-| Qalaqobana app (localhost only) | **5017** |
+| HTTP/HTTPS (nginx / Cloudflare) | 80 / 443 |
+| Qalaqobana app | **5017** (localhost) |
+| PostgreSQL | **5432** (localhost) |
+
+## Local Windows (optional)
+
+Install Postgres locally, then in `.env`:
+
+```env
+DATABASE_URL=postgresql+psycopg://qalaqobana:PASSWORD@127.0.0.1:5432/qalaqobana
+```
+
+Do **not** set `ALLOW_SQLITE=1` on the server.
